@@ -1,0 +1,28 @@
+namespace MythosGraph.Domain.Enums;
+
+public enum RelationType
+{
+    AppearsIn = 1,
+    BelongsToTradition = 2,
+    OriginatesFrom = 3,
+    Inhabits = 4,
+    HasDomain = 5,
+    Wields = 6,
+    CreatedBy = 7,
+    ParentOf = 8,
+    ChildOf = 9,
+    SiblingOf = 10,
+    RivalOf = 11,
+    EnemyOf = 12,
+    AllyOf = 13,
+    SlainBy = 14,
+    Slays = 15,
+    Guards = 16,
+    AssociatedWith = 17,
+    SimilarTo = 18,
+    InspiredBy = 19,
+    HasWeakness = 20,
+    CounteredBy = 21,
+    RequiresRitual = 22,
+    LocatedIn = 23
+}
