@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MythosGraph.Domain\MythosGraph.Domain.csproj" />
+    <ProjectReference Include="..\MythosGraph.Application\MythosGraph.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

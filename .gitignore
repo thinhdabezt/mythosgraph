@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 backend/src/MythosGraph.Api/appsettings.json
+backend/src/MythosGraph.Api/appsettings.Development.json
+backend/src/MythosGraph.Api/appsettings.Development.json

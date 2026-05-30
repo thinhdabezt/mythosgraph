@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using MythosGraph.Api.Extensions;
+using MythosGraph.Api.Middlewares;
 using MythosGraph.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,9 +13,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<MythosGraphDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddApplicationServices();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
-app.MapGet("/", () => "Hello World!");
+app.UseMiddleware<ApiExceptionMiddleware>();
+app.MapControllers();
 
 app.Run();
