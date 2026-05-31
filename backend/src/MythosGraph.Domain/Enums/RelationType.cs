@@ -24,5 +24,7 @@ public enum RelationType
     HasWeakness = 20,
     CounteredBy = 21,
     RequiresRitual = 22,
-    LocatedIn = 23
+    LocatedIn = 23,
+    SpouseOf = 24,
+    RomanEquivalentOf = 25
 }

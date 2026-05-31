@@ -5,6 +5,7 @@ namespace MythosGraph.Domain.Entities;
 public class Source
 {
     public Guid Id { get; set; }
+    public string? Slug { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Author { get; set; }
     public SourceType SourceType { get; set; }
