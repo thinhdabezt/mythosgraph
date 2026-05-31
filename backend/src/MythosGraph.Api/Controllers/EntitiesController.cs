@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using MythosGraph.Application.Features.Entities.Commands.CreateEntity;
 using MythosGraph.Application.Features.Entities.Commands.SoftDeleteEntity;
 using MythosGraph.Application.Features.Entities.Commands.UpdateEntity;
@@ -39,6 +40,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
 
 [Microsoft.AspNetCore.Mvc.ApiController]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/admin/entities")]
+[Authorize(Roles = "Admin")]
 public sealed class AdminEntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpPost]
