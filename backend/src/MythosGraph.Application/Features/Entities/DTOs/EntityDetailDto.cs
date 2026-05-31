@@ -9,6 +9,6 @@ public sealed record EntityDetailDto(
     EntityType EntityType,
     EntityTraditionDto? Tradition,
     string? Summary,
-    string? MetadataJson,
+    EntityMetadataDto Metadata,
     EntityLinksDto Links
 );

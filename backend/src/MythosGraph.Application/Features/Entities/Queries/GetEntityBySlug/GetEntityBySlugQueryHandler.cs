@@ -14,14 +14,30 @@ public sealed class GetEntityBySlugQueryHandler(IEntityRepository repository) : 
         }
 
         var (entity, tradition) = data.Value;
+        var lang = string.IsNullOrWhiteSpace(request.Lang) ? "en" : request.Lang.Trim().ToLowerInvariant();
+        var translation = await repository.GetTranslationAsync(entity.Id, lang, cancellationToken);
+        if (translation is null && lang != "en")
+        {
+            translation = await repository.GetTranslationAsync(entity.Id, "en", cancellationToken);
+        }
+
+        var aliases = await repository.GetAliasesByEntityIdAsync(entity.Id, cancellationToken);
+        var taxonomies = await repository.GetTaxonomiesByEntityIdAsync(entity.Id, cancellationToken);
+        var domains = taxonomies.Where(x => x.Category.Equals("domain", StringComparison.OrdinalIgnoreCase)).Select(x => x.Slug).ToArray();
+        var symbols = taxonomies.Where(x => x.Category.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Select(x => x.Slug).ToArray();
+
         return new EntityDetailDto(
             entity.Id,
             entity.Slug,
-            entity.Name,
+            translation?.Name ?? entity.Name,
             entity.EntityType,
             tradition is null ? null : new EntityTraditionDto(tradition.Slug, tradition.Name),
-            entity.Summary,
-            entity.MetadataJson,
+            translation?.Summary ?? entity.Summary,
+            new EntityMetadataDto(
+                aliases.Select(x => x.Alias).ToArray(),
+                domains,
+                symbols,
+                translation?.Description),
             new EntityLinksDto($"/api/v1/entities/{entity.Slug}/relations", $"/api/v1/entities/{entity.Slug}/neighbors")
         );
     }

@@ -4,6 +4,7 @@ using MythosGraph.Application.Features.Entities.Commands.CreateEntity;
 using MythosGraph.Application.Features.Entities.Commands.SoftDeleteEntity;
 using MythosGraph.Application.Features.Entities.Commands.UpdateEntity;
 using MythosGraph.Application.Features.Entities.DTOs;
+using MythosGraph.Application.Features.Entities.Queries.GetEntityRelationsBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntityBySlug;
 using MythosGraph.Application.Features.Entities.Queries.ListEntities;
 using MythosGraph.Domain.Enums;
@@ -15,9 +16,22 @@ namespace MythosGraph.Api.Controllers;
 public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}")]
-    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityDetailDto>> GetBySlug(string slug, CancellationToken cancellationToken)
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityDetailDto>> GetBySlug(
+        string slug,
+        [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
+        CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(new GetEntityBySlugQuery(slug), cancellationToken);
+        var result = await mediator.Send(new GetEntityBySlugQuery(slug, lang), cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/relations")]
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityRelationsDto>> GetRelations(
+        string slug,
+        [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetEntityRelationsBySlugQuery(slug, lang), cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 
