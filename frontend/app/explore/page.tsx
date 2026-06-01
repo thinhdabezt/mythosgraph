@@ -1,3 +1,538 @@
-﻿export default function ExplorePage() {
-  return <main className="p-6">Explore page</main>;
+﻿"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+type EntityType =
+  | "God"
+  | "Goddess"
+  | "MythFigure"
+  | "Hero"
+  | "Creature"
+  | "Artifact"
+  | "Weapon"
+  | "Legend";
+
+type Tradition =
+  | "Vietnamese Folklore"
+  | "Greek Mythology"
+  | "Norse Mythology";
+
+type Domain = "Mountain" | "Earth" | "Water" | "Sky" | "Thunder";
+
+type SortBy = "name" | "type" | "tradition";
+
+type SortDirection = "asc" | "desc";
+
+type Entity = {
+  id: string;
+  slug: string;
+  name: string;
+  summary: string;
+  type: EntityType;
+  tradition: Tradition;
+  domain: Domain;
+};
+
+type EntityQueryResponse = {
+  data: Entity[];
+  meta: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+};
+
+const PAGE_SIZE = 5;
+
+const ENTITY_TYPES: EntityType[] = [
+  "God",
+  "Goddess",
+  "MythFigure",
+  "Hero",
+  "Creature",
+  "Artifact",
+  "Weapon",
+  "Legend",
+];
+
+const TRADITIONS: Tradition[] = [
+  "Vietnamese Folklore",
+  "Greek Mythology",
+  "Norse Mythology",
+];
+
+const DOMAINS: Domain[] = ["Mountain", "Earth", "Water", "Sky", "Thunder"];
+
+const MOCK_ENTITIES: Entity[] = [
+  {
+    id: "1",
+    slug: "son-tinh",
+    name: "Son Tinh",
+    summary: "Mountain guardian who protects the land against recurring floods.",
+    type: "MythFigure",
+    tradition: "Vietnamese Folklore",
+    domain: "Mountain",
+  },
+  {
+    id: "2",
+    slug: "thor",
+    name: "Thor",
+    summary: "Thunder god and protector of Midgard, wielder of immense force.",
+    type: "God",
+    tradition: "Norse Mythology",
+    domain: "Thunder",
+  },
+  {
+    id: "3",
+    slug: "mjolnir",
+    name: "Mjolnir",
+    summary: "Enchanted hammer forged to channel thunder and divine authority.",
+    type: "Artifact",
+    tradition: "Norse Mythology",
+    domain: "Sky",
+  },
+  {
+    id: "4",
+    slug: "hydra",
+    name: "Hydra",
+    summary: "Regenerating serpent beast of Lerna with multi-headed resilience.",
+    type: "Creature",
+    tradition: "Greek Mythology",
+    domain: "Water",
+  },
+  {
+    id: "5",
+    slug: "ma-da",
+    name: "Ma Da",
+    summary: "River spirit known for eerie whispers and dangerous currents.",
+    type: "Creature",
+    tradition: "Vietnamese Folklore",
+    domain: "Water",
+  },
+];
+
+type QueryParams = {
+  search: string;
+  type: string;
+  tradition: string;
+  domain: string;
+  page: number;
+  sortBy: SortBy;
+  sortDirection: SortDirection;
+};
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, "-");
+}
+
+function applyMockQuery(params: QueryParams): EntityQueryResponse {
+  const searchLower = params.search.trim().toLowerCase();
+
+  let filtered = MOCK_ENTITIES.filter((entity) => {
+    const matchesSearch =
+      searchLower.length === 0 ||
+      entity.name.toLowerCase().includes(searchLower) ||
+      entity.summary.toLowerCase().includes(searchLower);
+
+    const matchesType = params.type === "all" || entity.type === params.type;
+    const matchesTradition =
+      params.tradition === "all" || entity.tradition === params.tradition;
+    const matchesDomain = params.domain === "all" || entity.domain === params.domain;
+
+    return matchesSearch && matchesType && matchesTradition && matchesDomain;
+  });
+
+  filtered = filtered.sort((a, b) => {
+    const left = a[params.sortBy].toLowerCase();
+    const right = b[params.sortBy].toLowerCase();
+    const result = left.localeCompare(right);
+    return params.sortDirection === "asc" ? result : -result;
+  });
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(params.page, 1), totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const data = filtered.slice(start, start + PAGE_SIZE);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: safePage,
+      pageSize: PAGE_SIZE,
+      totalPages,
+    },
+  };
+}
+
+async function fetchEntities(params: QueryParams): Promise<EntityQueryResponse> {
+  const query = new URLSearchParams({
+    search: params.search,
+    type: params.type,
+    tradition: params.tradition,
+    domain: params.domain,
+    page: String(params.page),
+    sortBy: params.sortBy,
+    sortDirection: params.sortDirection,
+  });
+
+  try {
+    const response = await fetch(`/api/v1/entities?${query.toString()}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch entities.");
+    }
+
+    const payload = (await response.json()) as EntityQueryResponse;
+    if (!payload?.data || !payload?.meta) {
+      throw new Error("Invalid API response shape.");
+    }
+
+    return payload;
+  } catch {
+    return applyMockQuery(params);
+  }
+}
+
+export default function ExplorePage() {
+  const [search, setSearch] = useState("");
+  const [entityType, setEntityType] = useState<string>("all");
+  const [tradition, setTradition] = useState<string>("all");
+  const [domain, setDomain] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  const query = useQuery({
+    queryKey: [
+      "explore-entities",
+      debouncedSearch,
+      entityType,
+      tradition,
+      domain,
+      page,
+      sortBy,
+      sortDirection,
+    ],
+    queryFn: () =>
+      fetchEntities({
+        search: debouncedSearch,
+        type: entityType,
+        tradition,
+        domain,
+        page,
+        sortBy,
+        sortDirection,
+      }),
+    placeholderData: (previousData) => previousData,
+  });
+
+  const entities = query.data?.data ?? [];
+  const meta =
+    query.data?.meta ?? ({ total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 1 } as const);
+
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    entityType !== "all" ||
+    tradition !== "all" ||
+    domain !== "all" ||
+    sortBy !== "name" ||
+    sortDirection !== "asc";
+
+  const pageNumbers = Array.from({ length: meta.totalPages }, (_, index) => index + 1);
+
+  const handleSortChange = (value: string) => {
+    const [nextSortBy, nextSortDirection] = value.split("|") as [SortBy, SortDirection];
+    setSortBy(nextSortBy);
+    setSortDirection(nextSortDirection);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setEntityType("all");
+    setTradition("all");
+    setDomain("all");
+    setSortBy("name");
+    setSortDirection("asc");
+    setPage(1);
+  };
+
+  return (
+    <main className="min-h-screen bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl">
+        <header className="mb-8 space-y-2">
+          <h1 className="font-serif text-3xl sm:text-4xl">Explore Mythology Data Grid</h1>
+          <p className="text-sm text-zinc-400">Found {meta.total} entities</p>
+        </header>
+
+        <section className="mb-6 grid gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4 lg:grid-cols-12">
+          <div className="relative lg:col-span-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <Input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search entities..."
+              className="border-zinc-700 bg-zinc-900/70 pl-9 text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+
+          <div className="lg:col-span-2">
+            <Select
+              value={entityType}
+              onValueChange={(value) => {
+                setEntityType(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
+                <SelectValue placeholder="Entity Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Entity Type</SelectItem>
+                {ENTITY_TYPES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Select
+              value={tradition}
+              onValueChange={(value) => {
+                setTradition(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
+                <SelectValue placeholder="Tradition" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tradition</SelectItem>
+                {TRADITIONS.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Select
+              value={domain}
+              onValueChange={(value) => {
+                setDomain(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
+                <SelectValue placeholder="Domain" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Domain</SelectItem>
+                {DOMAINS.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Select value={`${sortBy}|${sortDirection}`} onValueChange={handleSortChange}>
+              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name|asc">Name (A-Z)</SelectItem>
+                <SelectItem value="name|desc">Name (Z-A)</SelectItem>
+                <SelectItem value="type|asc">Type (A-Z)</SelectItem>
+                <SelectItem value="type|desc">Type (Z-A)</SelectItem>
+                <SelectItem value="tradition|asc">Tradition (A-Z)</SelectItem>
+                <SelectItem value="tradition|desc">Tradition (Z-A)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {hasActiveFilters ? (
+            <div className="lg:col-span-12">
+              <Button
+                variant="ghost"
+                className="h-auto p-0 text-xs text-zinc-400 hover:bg-transparent hover:text-zinc-200"
+                onClick={resetFilters}
+              >
+                Reset Filters
+              </Button>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="relative overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/20">
+          {query.isError ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+              <p className="text-sm text-rose-300">Unable to load entities right now. Please try again.</p>
+            </div>
+          ) : null}
+
+          <Table>
+            <TableHeader className="bg-zinc-900/30">
+              <TableRow className="border-zinc-900">
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-zinc-500">Name</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-zinc-500">Type</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wider text-zinc-500">Tradition</TableHead>
+                <TableHead className="text-right font-mono text-[11px] uppercase tracking-wider text-zinc-500">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {query.isLoading
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={`skeleton-${index}`} className="border-zinc-900 bg-transparent">
+                      <TableCell>
+                        <Skeleton className="mb-2 h-4 w-40 bg-zinc-800" />
+                        <Skeleton className="h-3 w-64 bg-zinc-900" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-6 w-20 bg-zinc-800" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-28 bg-zinc-800" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="ml-auto w-24">
+                          <Skeleton className="h-4 w-full bg-zinc-800" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
+
+              {!query.isLoading && entities.length === 0 ? (
+                <TableRow className="border-zinc-900">
+                  <TableCell colSpan={4} className="py-10 text-center text-sm text-zinc-500">
+                    No entities match your filters.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+
+              {!query.isLoading
+                ? entities.map((entity) => (
+                    <TableRow
+                      key={entity.id}
+                      className="border-b border-zinc-900 bg-transparent transition-colors hover:bg-zinc-900/40"
+                    >
+                      <TableCell>
+                        <p className="font-serif text-base font-semibold text-zinc-100">{entity.name}</p>
+                        <p className="mt-1 text-xs text-zinc-500">{entity.summary}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-200">
+                          {entity.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/traditions/${slugify(entity.tradition)}`}
+                          className="text-sm text-violet-300 transition hover:text-amber-300"
+                        >
+                          {entity.tradition}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link
+                          href={`/explore/${entity.slug}`}
+                          className="text-sm text-zinc-300 transition hover:text-zinc-100"
+                        >
+                          View Details -&gt;
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
+            </TableBody>
+          </Table>
+        </section>
+
+        <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-900/20 px-3 py-2">
+          <Button
+            variant="outline"
+            disabled={meta.page === 1}
+            className="border-zinc-700 bg-zinc-900/60"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          >
+            Previous
+          </Button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {pageNumbers.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                onClick={() => setPage(pageNumber)}
+                className={`rounded-md border px-2.5 py-1 text-xs font-mono transition ${
+                  pageNumber === meta.page
+                    ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
+                    : "border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {pageNumber}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            variant="outline"
+            disabled={meta.page >= meta.totalPages}
+            className="border-zinc-700 bg-zinc-900/60"
+            onClick={() => setPage((prev) => Math.min(meta.totalPages, prev + 1))}
+          >
+            Next
+          </Button>
+        </section>
+      </div>
+    </main>
+  );
 }
