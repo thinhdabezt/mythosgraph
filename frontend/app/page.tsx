@@ -6,12 +6,12 @@ import type { ComponentType, ReactNode } from "react";
 import {
   BookOpen,
   Database,
-  Github,
   GitFork,
   Globe,
   KeyRound,
   Network,
   Search,
+  SquareArrowOutUpRight,
   Sparkles,
 } from "lucide-react";
 
@@ -248,7 +248,7 @@ export default function HomePage() {
             <Link href="#" className="transition hover:text-violet-300">CreatureDex</Link>
             <Link href="#" className="transition hover:text-violet-300">Graph Explorer</Link>
             <Link href="#" className="inline-flex items-center gap-1.5 transition hover:text-violet-300">
-              <Github className="h-4 w-4" /> GitHub
+              <SquareArrowOutUpRight className="h-4 w-4" /> GitHub
             </Link>
           </div>
 
@@ -369,7 +369,7 @@ export default function HomePage() {
         <section>
           <h2 className="mb-4 font-serif text-2xl text-zinc-50">Interactive API Snapshot</h2>
           <Tabs defaultValue={apiMocks[0].id} className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 backdrop-blur-md">
+            <TabsList className="flex h-auto flex-col items-stretch gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 backdrop-blur-md">
               {apiMocks.map((mock) => (
                 <TabsTrigger
                   key={mock.id}
@@ -379,7 +379,7 @@ export default function HomePage() {
                   {mock.label}
                 </TabsTrigger>
               ))}
-            </div>
+            </TabsList>
 
             {apiMocks.map((mock) => (
               <TabsContent key={mock.id} value={mock.id} className="mt-0">
