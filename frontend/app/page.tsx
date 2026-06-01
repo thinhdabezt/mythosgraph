@@ -162,6 +162,8 @@ const apiMocks: ApiMock[] = [
   },
 ];
 
+const trendingEntities = ["Sơn Tinh", "Thor", "Hydra", "Ma Da"];
+
 function renderJson(value: unknown, indent = 0): ReactNode {
   const pad = "  ".repeat(indent);
   const nextPad = "  ".repeat(indent + 1);
@@ -258,7 +260,8 @@ export default function HomePage() {
           </Button>
         </nav>
 
-        <section className="mb-12 text-center">
+        <section className="relative mb-12 text-center">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-950/20 via-zinc-950 to-zinc-950" />
           <div className="mx-auto max-w-4xl space-y-6">
             <h1 className="font-serif text-4xl leading-tight text-zinc-50 sm:text-5xl lg:text-6xl">
               Unlock the World&apos;s Mythology Data Grid.
@@ -277,6 +280,18 @@ export default function HomePage() {
                 Ctrl K
               </Badge>
             </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
+              <span>Trending:</span>
+              {trendingEntities.map((entity) => (
+                <button
+                  key={entity}
+                  className="rounded-md border border-zinc-800 bg-zinc-900/50 px-2 py-1 transition hover:border-zinc-700 hover:text-zinc-300"
+                >
+                  {entity}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -292,7 +307,7 @@ export default function HomePage() {
                 transition={{ delay: index * 0.08, duration: 0.35 }}
                 whileHover={{ y: -3, scale: 1.01 }}
               >
-                <Card className="h-full border-zinc-800 bg-zinc-900/50 backdrop-blur-md transition-colors hover:border-violet-700/60">
+                <Card className="h-full border-zinc-800 bg-zinc-900/50 backdrop-blur-md transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_0_15px_rgba(139,92,246,0.1)]">
                   <CardHeader className="pb-3">
                     <CardDescription className="text-zinc-400">Live Stats</CardDescription>
                     <CardTitle className="flex items-center justify-between text-2xl text-zinc-50">
@@ -317,15 +332,28 @@ export default function HomePage() {
           <Tabs defaultValue="traditions" className="w-full">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-serif text-2xl text-zinc-50">Featured Knowledge</h2>
-              <TabsList className="bg-zinc-900/70">
-                <TabsTrigger value="traditions">Featured Traditions</TabsTrigger>
-                <TabsTrigger value="creatures">Featured Creatures</TabsTrigger>
+              <TabsList className="border border-zinc-800 bg-zinc-900/70">
+                <TabsTrigger
+                  value="traditions"
+                  className="text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
+                >
+                  Featured Traditions
+                </TabsTrigger>
+                <TabsTrigger
+                  value="creatures"
+                  className="text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
+                >
+                  Featured Creatures
+                </TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="traditions" className="mt-0 grid gap-4 md:grid-cols-3">
               {featuredTraditions.map((item) => (
-                <Card key={item.title} className="border-zinc-800 bg-zinc-900/50 backdrop-blur-md">
+                <Card
+                  key={item.title}
+                  className="border-zinc-800 bg-zinc-900/50 backdrop-blur-md transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                >
                   <CardHeader className="gap-3">
                     <Badge className="w-fit border-zinc-700 bg-zinc-800 text-zinc-200">{item.badge}</Badge>
                     <CardTitle className="text-zinc-50">{item.title}</CardTitle>
@@ -342,7 +370,10 @@ export default function HomePage() {
 
             <TabsContent value="creatures" className="mt-0 grid gap-4 md:grid-cols-3">
               {featuredCreatures.map((item) => (
-                <Card key={item.title} className="border-zinc-800 bg-zinc-900/50 backdrop-blur-md">
+                <Card
+                  key={item.title}
+                  className="border-zinc-800 bg-zinc-900/50 backdrop-blur-md transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                >
                   <CardHeader className="gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className="border-zinc-700 bg-zinc-800 text-zinc-200">{item.badge}</Badge>
@@ -366,15 +397,16 @@ export default function HomePage() {
           </Tabs>
         </section>
 
-        <section>
-          <h2 className="mb-4 font-serif text-2xl text-zinc-50">Interactive API Snapshot</h2>
-          <Tabs defaultValue={apiMocks[0].id} className="grid gap-4 lg:grid-cols-2">
-            <TabsList className="flex h-auto flex-col items-stretch gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 backdrop-blur-md">
+        <section className="relative">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-950/20 via-zinc-950 to-zinc-950" />
+          <Tabs defaultValue={apiMocks[0].id} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-3">
+            <h2 className="mb-6 font-serif text-2xl text-zinc-50 lg:col-span-3">Interactive API Snapshot</h2>
+            <TabsList className="flex h-auto w-full flex-col items-stretch gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 backdrop-blur-md lg:col-span-1">
               {apiMocks.map((mock) => (
                 <TabsTrigger
                   key={mock.id}
                   value={mock.id}
-                  className="w-full justify-start rounded-lg border border-transparent bg-zinc-900/70 px-4 py-3 text-left font-mono text-xs text-zinc-300 data-[state=active]:border-violet-700/60 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"
+                  className="w-full justify-start rounded-lg border border-transparent bg-zinc-900/70 px-4 py-3 text-left font-mono text-xs text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
                 >
                   {mock.label}
                 </TabsTrigger>
@@ -382,7 +414,7 @@ export default function HomePage() {
             </TabsList>
 
             {apiMocks.map((mock) => (
-              <TabsContent key={mock.id} value={mock.id} className="mt-0">
+              <TabsContent key={mock.id} value={mock.id} className="mt-0 lg:col-span-2">
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
