@@ -400,10 +400,10 @@ export default function ExplorePage() {
           </div>
 
           {hasActiveFilters ? (
-            <div className="lg:col-span-12">
+            <div className="ml-auto lg:col-span-12">
               <Button
                 variant="ghost"
-                className="h-auto p-0 text-xs text-zinc-400 hover:bg-transparent hover:text-zinc-200"
+                className="h-auto p-0 font-mono text-xs text-zinc-400 hover:bg-transparent hover:text-zinc-200"
                 onClick={resetFilters}
               >
                 Reset Filters
@@ -514,7 +514,7 @@ export default function ExplorePage() {
                 onClick={() => setPage(pageNumber)}
                 className={`rounded-md border px-2.5 py-1 text-xs font-mono transition ${
                   pageNumber === meta.page
-                    ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
+                    ? "border border-amber-500/30 bg-amber-500/10 font-mono text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
                     : "border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
                 }`}
               >

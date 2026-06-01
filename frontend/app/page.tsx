@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import {
   BookOpen,
@@ -245,8 +246,10 @@ function renderJson(value: unknown, indent = 0): ReactNode {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("entities");
+  const [heroSearch, setHeroSearch] = useState("");
 
   const handleCopyJson = async (id: string, payload: Record<string, unknown>) => {
     await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
@@ -258,6 +261,16 @@ export default function HomePage() {
     endpoints.find((endpoint) => endpoint.id === activeTab) ?? endpoints[0];
   const selectedMock =
     apiMocks.find((mock) => mock.id === selectedEndpoint.mockId) ?? apiMocks[0];
+
+  const handleHeroSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = heroSearch.trim();
+    if (!trimmed) {
+      router.push("/explore");
+      return;
+    }
+    router.push(`/explore?search=${encodeURIComponent(trimmed)}`);
+  };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
@@ -274,9 +287,15 @@ export default function HomePage() {
 
           <div className="hidden items-center gap-6 text-sm text-zinc-300 md:flex">
             <Link href="#" className="transition hover:text-violet-300">Docs</Link>
-            <Link href="#" className="transition hover:text-violet-300">CreatureDex</Link>
-            <Link href="#" className="transition hover:text-violet-300">Graph Explorer</Link>
-            <Link href="#" className="inline-flex items-center gap-1.5 transition hover:text-violet-300">
+            <Link href="/explore" className="transition hover:text-violet-300">CreatureDex</Link>
+            <Link href="/explore" className="transition hover:text-violet-300">Graph Explorer</Link>
+            <Link href="/explore" className="transition hover:text-violet-300">Explore</Link>
+            <Link
+              href="https://github.com/thinhdabezt/mythosgraph"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 transition hover:text-violet-300"
+            >
               <SquareArrowOutUpRight className="h-4 w-4" /> GitHub
             </Link>
           </div>
@@ -297,26 +316,33 @@ export default function HomePage() {
               A public, structured Knowledge Graph API for folklore, legends, pantheons, and mythical creatures.
             </p>
 
-            <div className="relative mx-auto mt-8 max-w-3xl">
+            <form onSubmit={handleHeroSearchSubmit} className="relative mx-auto mt-8 max-w-3xl">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
               <Input
+                value={heroSearch}
+                onChange={(event) => setHeroSearch(event.target.value)}
                 className="h-16 border-zinc-700/90 bg-zinc-900/60 pl-14 pr-24 text-base text-zinc-100 shadow-[0_0_0_1px_rgba(139,92,246,0.25),0_0_35px_rgba(139,92,246,0.12)] placeholder:text-zinc-500 focus-visible:ring-violet-500"
                 placeholder="Search mythology entities (e.g., Son Tinh, Thor, Hydra, Ma Da)..."
               />
               <Badge variant="secondary" className="absolute right-4 top-1/2 -translate-y-1/2 border border-zinc-700 bg-zinc-800/80 font-mono text-xs text-zinc-300">
-                Ctrl K
+                Enter
               </Badge>
-            </div>
+            </form>
+
+            <Link href="/explore" className="inline-flex rounded-md border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-sm text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100">
+              Explore Graph
+            </Link>
 
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
               <span>Trending:</span>
               {trendingEntities.map((entity) => (
-                <button
+                <Link
                   key={entity}
+                  href={`/explore?search=${encodeURIComponent(entity)}`}
                   className="rounded-md border border-zinc-800 bg-zinc-900/50 px-2 py-1 transition hover:border-zinc-700 hover:text-zinc-300"
                 >
                   {entity}
-                </button>
+                </Link>
               ))}
             </div>
           </div>
