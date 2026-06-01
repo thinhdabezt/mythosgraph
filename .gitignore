@@ -485,3 +485,16 @@ $RECYCLE.BIN/
 backend/src/MythosGraph.Api/appsettings.json
 backend/src/MythosGraph.Api/appsettings.Development.json
 backend/src/MythosGraph.Api/appsettings.Development.json
+
+# Frontend (Next.js)
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+frontend/.turbo/
+frontend/.cache/
+frontend/coverage/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
