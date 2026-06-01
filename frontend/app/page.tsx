@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 import {
   BookOpen,
+  Clipboard,
   Database,
   GitFork,
   Globe,
@@ -12,7 +14,6 @@ import {
   Network,
   Search,
   SquareArrowOutUpRight,
-  Sparkles,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,12 @@ type ApiMock = {
   id: string;
   label: string;
   response: Record<string, unknown>;
+};
+
+type EndpointItem = {
+  id: string;
+  path: string;
+  mockId: ApiMock["id"];
 };
 
 const stats: StatItem[] = [
@@ -164,6 +171,12 @@ const apiMocks: ApiMock[] = [
 
 const trendingEntities = ["Sơn Tinh", "Thor", "Hydra", "Ma Da"];
 
+const endpoints: EndpointItem[] = [
+  { id: "entities", path: "GET /entities/son-tinh", mockId: "entity" },
+  { id: "graph", path: "GET /graph/path", mockId: "path" },
+  { id: "creatures", path: "GET /creatures/ma-da", mockId: "creature" },
+];
+
 function renderJson(value: unknown, indent = 0): ReactNode {
   const pad = "  ".repeat(indent);
   const nextPad = "  ".repeat(indent + 1);
@@ -232,6 +245,20 @@ function renderJson(value: unknown, indent = 0): ReactNode {
 }
 
 export default function HomePage() {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("entities");
+
+  const handleCopyJson = async (id: string, payload: Record<string, unknown>) => {
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    setCopiedId(id);
+    setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1200);
+  };
+
+  const selectedEndpoint =
+    endpoints.find((endpoint) => endpoint.id === activeTab) ?? endpoints[0];
+  const selectedMock =
+    apiMocks.find((mock) => mock.id === selectedEndpoint.mockId) ?? apiMocks[0];
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -335,13 +362,13 @@ export default function HomePage() {
               <TabsList className="border border-zinc-800 bg-zinc-900/70">
                 <TabsTrigger
                   value="traditions"
-                  className="text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
+                  className="border border-zinc-800/50 bg-zinc-900/30 text-zinc-400 transition-all duration-200 hover:bg-zinc-800/50 hover:text-zinc-200 data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:shadow-[0_0_20px_rgba(245,158,11,0.08)]"
                 >
                   Featured Traditions
                 </TabsTrigger>
                 <TabsTrigger
                   value="creatures"
-                  className="text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
+                  className="border border-zinc-800/50 bg-zinc-900/30 text-zinc-400 transition-all duration-200 hover:bg-zinc-800/50 hover:text-zinc-200 data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:shadow-[0_0_20px_rgba(245,158,11,0.08)]"
                 >
                   Featured Creatures
                 </TabsTrigger>
@@ -399,41 +426,79 @@ export default function HomePage() {
 
         <section className="relative">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-950/20 via-zinc-950 to-zinc-950" />
-          <Tabs defaultValue={apiMocks[0].id} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-3">
             <h2 className="mb-6 font-serif text-2xl text-zinc-50 lg:col-span-3">Interactive API Snapshot</h2>
-            <TabsList className="flex h-auto w-full flex-col items-stretch gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 backdrop-blur-md lg:col-span-1">
-              {apiMocks.map((mock) => (
-                <TabsTrigger
-                  key={mock.id}
-                  value={mock.id}
-                  className="w-full justify-start rounded-lg border border-transparent bg-zinc-900/70 px-4 py-3 text-left font-mono text-xs text-zinc-500 hover:text-zinc-300 data-[state=active]:border data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400"
-                >
-                  {mock.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="min-h-[600px] grid grid-cols-1 overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md lg:col-span-3 lg:grid-cols-3">
+              {/* LEFT COLUMN: API SIDEBAR CONTAINER */}
+              <div className="flex flex-col w-full h-full p-6 bg-zinc-950/40 border-r border-zinc-800/80 lg:col-span-1">
+                {/* Header: Isolated from buttons grid with clear margin */}
+                <div className="w-full mb-4 pb-2 border-b border-zinc-900">
+                  <span className="block text-[10px] font-mono font-medium tracking-widest text-zinc-500 uppercase">
+                    Available Endpoints
+                  </span>
+                </div>
 
-            {apiMocks.map((mock) => (
-              <TabsContent key={mock.id} value={mock.id} className="mt-0 lg:col-span-2">
+                {/* Buttons Grid: Separated cleanly, using flex column distribution */}
+                <div className="flex flex-col gap-3 w-full">
+                  {endpoints.map((endpoint) => {
+                    const isActive = activeTab === endpoint.id;
+
+                    return (
+                      <button
+                        key={endpoint.id}
+                        onClick={() => setActiveTab(endpoint.id)}
+                        className={`w-full text-left font-mono text-xs px-4 py-3 rounded-lg border transition-all duration-200 relative block normal-case tracking-normal m-0 ${
+                          isActive
+                            ? "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+                            : "bg-zinc-900/30 text-zinc-400 border-zinc-800/60 hover:text-zinc-200 hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        {endpoint.path}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/20 p-6 lg:col-span-2">
                 <motion.div
+                  key={selectedMock.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+                  className="flex h-full min-h-[540px] flex-col rounded-xl border border-zinc-800 bg-zinc-900/70"
                 >
-                  <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3">
-                    <p className="inline-flex items-center gap-2 font-mono text-xs text-zinc-400">
-                      <Database className="h-3.5 w-3.5 text-emerald-400" /> JSON Response
-                    </p>
-                    <Sparkles className="h-4 w-4 text-violet-400" />
+                  <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                    <div className="inline-flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400/80" />
+                        <span className="h-2 w-2 rounded-full bg-amber-400/80" />
+                        <span className="h-2 w-2 rounded-full bg-rose-400/80" />
+                      </span>
+                      <p className="inline-flex items-center gap-2 font-mono text-xs text-zinc-400">
+                        <Database className="h-3.5 w-3.5 text-emerald-400" />
+                        Response Payload
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleCopyJson(selectedMock.id, selectedMock.response)}
+                      className="h-8 gap-1.5 rounded-md border border-zinc-700/70 px-2.5 font-mono text-[11px] text-zinc-300 hover:bg-zinc-800/80 hover:text-zinc-100"
+                    >
+                      <Clipboard className="h-3.5 w-3.5" />
+                      {copiedId === selectedMock.id ? "Copied" : "Copy JSON"}
+                    </Button>
                   </div>
-                  <pre className="overflow-auto font-mono text-xs leading-6 text-zinc-200">
-                    {renderJson(mock.response)}
-                  </pre>
+                  <div className="flex-1 overflow-auto p-6">
+                    <pre className="font-mono text-xs leading-6 text-zinc-200">
+                      {renderJson(selectedMock.response)}
+                    </pre>
+                  </div>
                 </motion.div>
-              </TabsContent>
-            ))}
-          </Tabs>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </main>
