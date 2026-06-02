@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
@@ -145,6 +146,18 @@ type QueryParams = {
   sortDirection: SortDirection;
 };
 
+const SELECT_TRIGGER_CLASS =
+  "w-full lg:w-[160px] bg-zinc-900/50 border-zinc-800 text-zinc-300 font-mono text-xs h-10 px-3 pr-8 relative transition-all duration-200 hover:bg-zinc-800/50 text-left";
+
+const SORT_LABELS: Record<`${SortBy}|${SortDirection}`, string> = {
+  "name|asc": "Sort: Name (A-Z)",
+  "name|desc": "Sort: Name (Z-A)",
+  "type|asc": "Sort: Type (A-Z)",
+  "type|desc": "Sort: Type (Z-A)",
+  "tradition|asc": "Sort: Tradition (A-Z)",
+  "tradition|desc": "Sort: Tradition (Z-A)",
+};
+
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
 
@@ -158,6 +171,22 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/\s+/g, "-");
+}
+
+function getEntityBadgeClass(type: EntityType): string {
+  if (type === "God" || type === "Goddess") {
+    return "border-violet-500/20 bg-violet-500/10 text-violet-400";
+  }
+
+  if (type === "Creature") {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+  }
+
+  if (type === "Artifact" || type === "Weapon") {
+    return "border-amber-500/20 bg-amber-500/10 text-amber-400";
+  }
+
+  return "border-zinc-700/50 bg-zinc-800/50 text-zinc-400";
 }
 
 function applyMockQuery(params: QueryParams): EntityQueryResponse {
@@ -230,7 +259,10 @@ async function fetchEntities(params: QueryParams): Promise<EntityQueryResponse> 
 }
 
 export default function ExplorePage() {
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search") ?? "";
+
+  const [search, setSearch] = useState(initialSearch);
   const [entityType, setEntityType] = useState<string>("all");
   const [tradition, setTradition] = useState<string>("all");
   const [domain, setDomain] = useState<string>("all");
@@ -325,11 +357,11 @@ export default function ExplorePage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
-                <SelectValue placeholder="Entity Type" />
+              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Entity Type</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 {ENTITY_TYPES.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
@@ -347,11 +379,11 @@ export default function ExplorePage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
-                <SelectValue placeholder="Tradition" />
+              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="All Traditions" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tradition</SelectItem>
+                <SelectItem value="all">All Traditions</SelectItem>
                 {TRADITIONS.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
@@ -369,11 +401,11 @@ export default function ExplorePage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
-                <SelectValue placeholder="Domain" />
+              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="All Domains" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Domain</SelectItem>
+                <SelectItem value="all">All Domains</SelectItem>
                 {DOMAINS.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
@@ -385,16 +417,16 @@ export default function ExplorePage() {
 
           <div className="lg:col-span-2">
             <Select value={`${sortBy}|${sortDirection}`} onValueChange={handleSortChange}>
-              <SelectTrigger className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
-                <SelectValue placeholder="Sort" />
+              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="Sort By" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name|asc">Name (A-Z)</SelectItem>
-                <SelectItem value="name|desc">Name (Z-A)</SelectItem>
-                <SelectItem value="type|asc">Type (A-Z)</SelectItem>
-                <SelectItem value="type|desc">Type (Z-A)</SelectItem>
-                <SelectItem value="tradition|asc">Tradition (A-Z)</SelectItem>
-                <SelectItem value="tradition|desc">Tradition (Z-A)</SelectItem>
+                <SelectItem value="name|asc">{SORT_LABELS["name|asc"]}</SelectItem>
+                <SelectItem value="name|desc">{SORT_LABELS["name|desc"]}</SelectItem>
+                <SelectItem value="type|asc">{SORT_LABELS["type|asc"]}</SelectItem>
+                <SelectItem value="type|desc">{SORT_LABELS["type|desc"]}</SelectItem>
+                <SelectItem value="tradition|asc">{SORT_LABELS["tradition|asc"]}</SelectItem>
+                <SelectItem value="tradition|desc">{SORT_LABELS["tradition|desc"]}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -463,14 +495,14 @@ export default function ExplorePage() {
                 ? entities.map((entity) => (
                     <TableRow
                       key={entity.id}
-                      className="border-b border-zinc-900 bg-transparent transition-colors hover:bg-zinc-900/40"
+                      className="border-b border-l-2 border-l-transparent border-zinc-900 bg-transparent transition-all duration-200 hover:border-l-amber-500/50 hover:border-zinc-700/50 hover:bg-zinc-900/30"
                     >
                       <TableCell>
                         <p className="font-serif text-base font-semibold text-zinc-100">{entity.name}</p>
                         <p className="mt-1 text-xs text-zinc-500">{entity.summary}</p>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-200">
+                        <Badge variant="outline" className={getEntityBadgeClass(entity.type)}>
                           {entity.type}
                         </Badge>
                       </TableCell>
