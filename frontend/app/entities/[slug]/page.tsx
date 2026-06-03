@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -69,6 +68,10 @@ type EntitySource = {
   notes: string;
 };
 
+interface PageProps {
+  params: { slug: string };
+}
+
 const MOCK_DETAILS: Record<string, EntityDetail> = {
   "son-tinh": {
     id: "ent_son_tinh",
@@ -85,6 +88,23 @@ const MOCK_DETAILS: Record<string, EntityDetail> = {
     metadata: {
       domains: ["Mountain", "Earth", "Protection"],
       alignment: "protective-neutral",
+    },
+  },
+  thor: {
+    id: "ent_thor",
+    slug: "thor",
+    name: "Thor",
+    entityType: "God",
+    tradition: "Norse Mythology",
+    traditionId: "norse-mythology",
+    status: "canonical",
+    summary:
+      "A thunder god associated with storms, strength, protection, and the enchanted hammer Mjolnir.",
+    createdAt: "2026-05-29T10:10:00.000Z",
+    apiStatusCode: 200,
+    metadata: {
+      domains: ["Thunder", "Sky"],
+      alignment: "protective-chaotic",
     },
   },
 };
@@ -133,6 +153,25 @@ const MOCK_RELATIONS: Record<string, EntityRelationsResponse> = {
       },
     ],
   },
+  thor: {
+    sourceSlug: "thor",
+    relations: [
+      {
+        relationType: "wields",
+        targetName: "Mjolnir",
+        targetSlug: "mjolnir",
+        direction: "outgoing",
+      },
+    ],
+    neighbors: [
+      {
+        relationType: "wields",
+        targetName: "Mjolnir",
+        targetSlug: "mjolnir",
+        direction: "outgoing",
+      },
+    ],
+  },
 };
 
 const MOCK_SOURCES: Record<string, EntitySource[]> = {
@@ -156,21 +195,20 @@ const MOCK_SOURCES: Record<string, EntitySource[]> = {
         "Used for relation modeling, domain tags, and canonical entity linkage.",
     },
   ],
+  thor: [
+    {
+      id: "src_thor_001",
+      title: "Norse Mythology Entity Index",
+      author: "MythosGraph Editorial Index",
+      sourceType: "curated-summary",
+      publicationYear: 2026,
+      notes:
+        "Metadata-only citation record for Thor. The API stores source attribution, not copyrighted full text.",
+    },
+  ],
 };
 
-const FALLBACK_DETAIL: EntityDetail = MOCK_DETAILS["son-tinh"];
-const FALLBACK_RELATIONS: EntityRelationsResponse = MOCK_RELATIONS["son-tinh"];
-const FALLBACK_SOURCES: EntitySource[] = MOCK_SOURCES["son-tinh"];
-
-function getSlugFromParams(slugParam: string | string[] | undefined): string {
-  if (Array.isArray(slugParam)) {
-    return slugParam[0] ?? "son-tinh";
-  }
-
-  return slugParam ?? "son-tinh";
-}
-
-async function fetchWithFallback<T>(url: string, fallback: T): Promise<T> {
+async function fetchWithFallback<T>(url: string, fallback: T | null): Promise<T | null> {
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -226,16 +264,38 @@ function LoadingShell() {
   );
 }
 
-export default function EntityDetailPage() {
-  const params = useParams<{ slug?: string | string[] }>();
-  const slug = getSlugFromParams(params.slug);
+function NotFoundShell({ slug }: { slug: string }) {
+  return (
+    <main className="min-h-screen bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl rounded-xl border border-zinc-800 bg-zinc-900/40 p-8">
+        <p className="mb-3 font-mono text-xs uppercase tracking-widest text-zinc-500">
+          Entity Not Found
+        </p>
+        <h1 className="font-serif text-4xl text-zinc-50">No entity mapped for {slug}</h1>
+        <p className="mt-4 leading-7 text-zinc-400">
+          This dynamic route is valid, but no API response or local mock record exists for this
+          slug yet.
+        </p>
+        <Link
+          href="/explore"
+          className="mt-6 inline-flex font-mono text-xs text-amber-400 transition hover:text-amber-300"
+        >
+          Back to Explore -&gt;
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+export default function EntityDetailPage({ params }: PageProps) {
+  const { slug } = params;
 
   const detailQuery = useQuery({
     queryKey: ["entity-detail", slug],
     queryFn: () =>
       fetchWithFallback<EntityDetail>(
         `/api/v1/entities/${slug}`,
-        MOCK_DETAILS[slug] ?? FALLBACK_DETAIL
+        MOCK_DETAILS[slug] ?? null
       ),
   });
 
@@ -244,7 +304,7 @@ export default function EntityDetailPage() {
     queryFn: () =>
       fetchWithFallback<EntityRelationsResponse>(
         `/api/v1/entities/${slug}/relations`,
-        MOCK_RELATIONS[slug] ?? FALLBACK_RELATIONS
+        MOCK_RELATIONS[slug] ?? null
       ),
   });
 
@@ -253,12 +313,20 @@ export default function EntityDetailPage() {
     queryFn: () =>
       fetchWithFallback<EntitySource[]>(
         `/api/v1/entities/${slug}/sources`,
-        MOCK_SOURCES[slug] ?? FALLBACK_SOURCES
+        MOCK_SOURCES[slug] ?? null
       ),
   });
 
   const entity = detailQuery.data;
-  const relations = relationsQuery.data;
+  const relations = useMemo(
+    () =>
+      relationsQuery.data ?? {
+        sourceSlug: slug,
+        relations: [],
+        neighbors: [],
+      },
+    [relationsQuery.data, slug]
+  );
   const sources = sourcesQuery.data ?? [];
   const isLoading = detailQuery.isLoading || relationsQuery.isLoading || sourcesQuery.isLoading;
 
@@ -316,8 +384,12 @@ export default function EntityDetailPage() {
     return { nodes: [centerNode, ...outerNodes], edges };
   }, [entity, relations]);
 
-  if (isLoading || !entity || !relations) {
+  if (isLoading) {
     return <LoadingShell />;
+  }
+
+  if (!entity) {
+    return <NotFoundShell slug={slug} />;
   }
 
   return (
@@ -365,7 +437,7 @@ export default function EntityDetailPage() {
               <TabsTrigger
                 key={tab}
                 value={tab}
-                className="rounded-md border border-transparent px-4 py-2 font-mono text-sm text-zinc-500 transition-all duration-200 hover:text-zinc-300 data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-active:border-amber-500/30 data-active:bg-amber-500/10 data-active:text-amber-400"
+                className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 px-4 py-2 border border-transparent rounded-md text-sm font-mono text-zinc-500 hover:text-zinc-300 transition-all duration-200"
               >
                 {tab === "graph" ? "Graph Preview" : tab}
               </TabsTrigger>
