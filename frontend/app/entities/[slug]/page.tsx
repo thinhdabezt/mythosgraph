@@ -365,7 +365,7 @@ export default function EntityDetailPage() {
               <TabsTrigger
                 key={tab}
                 value={tab}
-                className="border border-transparent px-4 py-2 font-mono text-xs capitalize text-zinc-500 hover:text-zinc-300 data-active:border-amber-500/30 data-active:bg-amber-500/10 data-active:text-amber-400 data-active:shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+                className="rounded-md border border-transparent px-4 py-2 font-mono text-sm text-zinc-500 transition-all duration-200 hover:text-zinc-300 data-[state=active]:border-amber-500/30 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-active:border-amber-500/30 data-active:bg-amber-500/10 data-active:text-amber-400"
               >
                 {tab === "graph" ? "Graph Preview" : tab}
               </TabsTrigger>

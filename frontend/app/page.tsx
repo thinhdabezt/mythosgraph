@@ -39,6 +39,7 @@ type StatItem = {
 
 type FeaturedItem = {
   title: string;
+  slug: string;
   summary: string;
   badge: string;
   danger?: "Low" | "Medium" | "High";
@@ -83,16 +84,19 @@ const stats: StatItem[] = [
 const featuredTraditions: FeaturedItem[] = [
   {
     title: "Vietnamese Folklore",
+    slug: "vietnamese-folklore",
     badge: "Tradition",
     summary: "River spirits, mountain deities, and oral legends rooted in local cosmology.",
   },
   {
     title: "Greek Pantheon",
+    slug: "greek-pantheon",
     badge: "Tradition",
     summary: "Olympian lineages, hero archetypes, and layered divine conflicts.",
   },
   {
     title: "Norse Myth",
+    slug: "norse-myth",
     badge: "Tradition",
     summary: "Cosmic cycles, giant realms, and fate threads woven through Yggdrasil.",
   },
@@ -101,18 +105,21 @@ const featuredTraditions: FeaturedItem[] = [
 const featuredCreatures: FeaturedItem[] = [
   {
     title: "Ma Da",
+    slug: "ma-da",
     badge: "Creature",
     summary: "A waterbound entity said to lure travelers into murky river currents.",
     danger: "Medium",
   },
   {
     title: "Hydra",
+    slug: "hydra",
     badge: "Creature",
     summary: "A many-headed serpent whose regeneration marks it as a persistent threat.",
     danger: "High",
   },
   {
     title: "Fenrir",
+    slug: "fenrir",
     badge: "Creature",
     summary: "A colossal wolf tied to apocalyptic cycles and divine reckoning.",
     danger: "High",
@@ -413,9 +420,12 @@ export default function HomePage() {
                     <CardDescription className="text-zinc-400">{item.summary}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <button className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-violet-200">
+                    <Link
+                      href={`/entities/${item.slug}`}
+                      className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-violet-200"
+                    >
                       Explore Graph Connection <Network className="h-3.5 w-3.5" />
-                    </button>
+                    </Link>
                   </CardContent>
                 </Card>
               ))}
@@ -440,9 +450,12 @@ export default function HomePage() {
                     <CardDescription className="text-zinc-400">{item.summary}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <button className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-violet-200">
+                    <Link
+                      href={`/entities/${item.slug}`}
+                      className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-violet-200"
+                    >
                       Explore Graph Connection <Network className="h-3.5 w-3.5" />
-                    </button>
+                    </Link>
                   </CardContent>
                 </Card>
               ))}

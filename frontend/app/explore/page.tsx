@@ -541,8 +541,8 @@ function ExplorePageContent() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Link
-                          href={`/explore/${entity.slug}`}
-                          className="text-sm text-zinc-300 transition hover:text-zinc-100"
+                          href={`/entities/${entity.slug}`}
+                          className="font-mono text-xs text-zinc-400 transition-colors duration-200 hover:text-amber-400"
                         >
                           View Details -&gt;
                         </Link>
