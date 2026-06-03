@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
@@ -289,7 +289,7 @@ async function fetchEntities(params: QueryParams): Promise<EntityQueryResponse> 
   }
 }
 
-export default function ExplorePage() {
+function ExplorePageContent() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get("search") ?? "";
 
@@ -425,7 +425,11 @@ export default function ExplorePage() {
             {filterConfigs.map((config) => (
               <Select
                 key={config.id}
-                onValueChange={config.setValue}
+                onValueChange={(value) => {
+                  if (value) {
+                    config.setValue(value);
+                  }
+                }}
                 value={config.value}
               >
                 <SelectTrigger className={SELECT_TRIGGER_CLASS}>
@@ -587,5 +591,22 @@ export default function ExplorePage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-7xl">
+            <Skeleton className="mb-6 h-10 w-80 bg-zinc-800" />
+            <Skeleton className="h-[520px] rounded-xl bg-zinc-900" />
+          </div>
+        </main>
+      }
+    >
+      <ExplorePageContent />
+    </Suspense>
   );
 }
