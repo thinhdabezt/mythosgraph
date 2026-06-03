@@ -14,7 +14,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -80,12 +79,6 @@ const ENTITY_TYPES: EntityType[] = [
   "Legend",
 ];
 
-const TRADITIONS: Tradition[] = [
-  "Vietnamese Folklore",
-  "Greek Mythology",
-  "Norse Mythology",
-];
-
 const DOMAINS: Domain[] = ["Mountain", "Earth", "Water", "Sky", "Thunder"];
 
 const MOCK_ENTITIES: Entity[] = [
@@ -146,8 +139,19 @@ type QueryParams = {
   sortDirection: SortDirection;
 };
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
 const SELECT_TRIGGER_CLASS =
-  "w-full lg:w-[160px] bg-zinc-900/50 border-zinc-800 text-zinc-300 font-mono text-xs h-10 px-3 pr-8 relative transition-all duration-200 hover:bg-zinc-800/50 text-left";
+  "w-full lg:w-[165px] bg-zinc-900/50 border-zinc-800 text-zinc-300 font-mono text-xs h-10 px-3 pr-8 relative transition-all duration-200 hover:bg-zinc-800/50 hover:text-zinc-100 text-left rounded-lg focus:ring-1 focus:ring-amber-500/30";
+
+const SELECT_CONTENT_CLASS =
+  "bg-zinc-950 border border-zinc-800 text-zinc-300 font-mono text-xs rounded-lg shadow-xl backdrop-blur-md min-w-[165px]";
+
+const SELECT_ITEM_CLASS =
+  "focus:bg-amber-500/10 focus:text-amber-400 text-zinc-400 cursor-pointer transition-colors py-2 rounded-md font-mono text-xs data-[selected]:text-amber-400 data-[selected]:bg-amber-500/5";
 
 const SORT_LABELS: Record<`${SortBy}|${SortDirection}`, string> = {
   "name|asc": "Sort: Name (A-Z)",
@@ -157,6 +161,33 @@ const SORT_LABELS: Record<`${SortBy}|${SortDirection}`, string> = {
   "tradition|asc": "Sort: Tradition (A-Z)",
   "tradition|desc": "Sort: Tradition (Z-A)",
 };
+
+const TYPE_OPTIONS: SelectOption[] = [
+  { value: "all", label: "All Types" },
+  ...ENTITY_TYPES.map((type) => ({
+    value: type,
+    label: type === "MythFigure" ? "Myth Figure" : type,
+  })),
+];
+
+const TRADITION_OPTIONS: SelectOption[] = [
+  { value: "all", label: "All Traditions" },
+  { value: "vietnamese-folklore", label: "Vietnamese Folklore" },
+  { value: "greek-mythology", label: "Greek Mythology" },
+  { value: "norse-mythology", label: "Norse Mythology" },
+];
+
+const DOMAIN_OPTIONS: SelectOption[] = [
+  { value: "all", label: "All Domains" },
+  ...DOMAINS.map((item) => ({ value: item, label: item })),
+];
+
+const SORT_OPTIONS: SelectOption[] = [
+  { value: "name|asc", label: SORT_LABELS["name|asc"] },
+  { value: "name|desc", label: SORT_LABELS["name|desc"] },
+  { value: "type|asc", label: SORT_LABELS["type|asc"] },
+  { value: "tradition|asc", label: SORT_LABELS["tradition|asc"] },
+];
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -200,7 +231,7 @@ function applyMockQuery(params: QueryParams): EntityQueryResponse {
 
     const matchesType = params.type === "all" || entity.type === params.type;
     const matchesTradition =
-      params.tradition === "all" || entity.tradition === params.tradition;
+      params.tradition === "all" || slugify(entity.tradition) === params.tradition;
     const matchesDomain = params.domain === "all" || entity.domain === params.domain;
 
     return matchesSearch && matchesType && matchesTradition && matchesDomain;
@@ -327,6 +358,47 @@ export default function ExplorePage() {
     setPage(1);
   };
 
+  const sortByDirection = `${sortBy}|${sortDirection}` as `${SortBy}|${SortDirection}`;
+  const filterConfigs = [
+    {
+      id: "type",
+      value: entityType,
+      setValue: (value: string) => {
+        setEntityType(value);
+        setPage(1);
+      },
+      placeholder: "All Types",
+      options: TYPE_OPTIONS,
+    },
+    {
+      id: "tradition",
+      value: tradition,
+      setValue: (value: string) => {
+        setTradition(value);
+        setPage(1);
+      },
+      placeholder: "All Traditions",
+      options: TRADITION_OPTIONS,
+    },
+    {
+      id: "domain",
+      value: domain,
+      setValue: (value: string) => {
+        setDomain(value);
+        setPage(1);
+      },
+      placeholder: "All Domains",
+      options: DOMAIN_OPTIONS,
+    },
+    {
+      id: "sort",
+      value: sortByDirection,
+      setValue: handleSortChange,
+      placeholder: "Sort: Name (A-Z)",
+      options: SORT_OPTIONS,
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-7xl">
@@ -349,86 +421,35 @@ export default function ExplorePage() {
             />
           </div>
 
-          <div className="lg:col-span-2">
-            <Select
-              value={entityType}
-              onValueChange={(value) => {
-                setEntityType(value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {ENTITY_TYPES.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="flex w-full flex-wrap items-center gap-3 lg:col-span-8 lg:w-auto">
+            {filterConfigs.map((config) => (
+              <Select
+                key={config.id}
+                onValueChange={config.setValue}
+                value={config.value}
+              >
+                <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                  <span className="truncate">
+                    {config.value === "all" || config.value === ""
+                      ? config.placeholder
+                      : config.options.find((opt) => opt.value === config.value)?.label ||
+                        config.value}
+                  </span>
+                </SelectTrigger>
 
-          <div className="lg:col-span-2">
-            <Select
-              value={tradition}
-              onValueChange={(value) => {
-                setTradition(value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="All Traditions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Traditions</SelectItem>
-                {TRADITIONS.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="lg:col-span-2">
-            <Select
-              value={domain}
-              onValueChange={(value) => {
-                setDomain(value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="All Domains" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Domains</SelectItem>
-                {DOMAINS.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="lg:col-span-2">
-            <Select value={`${sortBy}|${sortDirection}`} onValueChange={handleSortChange}>
-              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name|asc">{SORT_LABELS["name|asc"]}</SelectItem>
-                <SelectItem value="name|desc">{SORT_LABELS["name|desc"]}</SelectItem>
-                <SelectItem value="type|asc">{SORT_LABELS["type|asc"]}</SelectItem>
-                <SelectItem value="type|desc">{SORT_LABELS["type|desc"]}</SelectItem>
-                <SelectItem value="tradition|asc">{SORT_LABELS["tradition|asc"]}</SelectItem>
-                <SelectItem value="tradition|desc">{SORT_LABELS["tradition|desc"]}</SelectItem>
-              </SelectContent>
-            </Select>
+                <SelectContent className={SELECT_CONTENT_CLASS}>
+                  {config.options.map((opt) => (
+                    <SelectItem
+                      className={SELECT_ITEM_CLASS}
+                      key={opt.value}
+                      value={opt.value}
+                    >
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
           </div>
 
           {hasActiveFilters ? (
