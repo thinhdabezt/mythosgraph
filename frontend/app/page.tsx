@@ -270,7 +270,7 @@ export default function HomePage() {
           </div>
 
           <div className="hidden items-center gap-6 text-sm text-zinc-300 md:flex">
-            <Link href="#" className="transition hover:text-violet-300">Docs</Link>
+            <Link href="/docs" className="transition hover:text-violet-300">Docs</Link>
             <Link href="/explore" className="transition hover:text-violet-300">CreatureDex</Link>
             <Link
               href="/graph-explorer"
