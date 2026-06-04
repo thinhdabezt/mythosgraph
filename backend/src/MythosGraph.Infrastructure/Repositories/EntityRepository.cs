@@ -1,4 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using MythosGraph.Application.Common;
+using MythosGraph.Application.Features.Entities.DTOs;
+using MythosGraph.Application.Features.Graph.DTOs;
+using MythosGraph.Application.Features.Relations.DTOs;
+using MythosGraph.Application.Features.Search.DTOs;
 using MythosGraph.Application.Interfaces;
 using MythosGraph.Domain.Entities;
 using MythosGraph.Domain.Enums;
@@ -316,6 +321,219 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
             where et.EntityId == entityId
             select t
         ).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<EntitySourceItemDto>> GetSourcesByEntityIdAsync(Guid entityId, CancellationToken cancellationToken)
+    {
+        return await (
+            from es in dbContext.EntitySources
+            join source in dbContext.Sources on es.SourceId equals source.Id
+            where es.EntityId == entityId
+            orderby source.Title
+            select new EntitySourceItemDto(
+                source.Id,
+                source.Slug,
+                source.Title,
+                source.Author,
+                source.SourceType,
+                source.Url,
+                source.PublicationYear,
+                source.Language,
+                source.LicenseNote,
+                source.Notes,
+                es.Notes)
+        ).ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> RelationExistsAsync(Guid relationId, CancellationToken cancellationToken)
+    {
+        return await dbContext.GraphRelations
+            .AnyAsync(x => x.Id == relationId && x.DeletedAt == null && x.Status != EntityStatus.Deleted, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<RelationSourceItemDto>> GetSourcesByRelationIdAsync(Guid relationId, CancellationToken cancellationToken)
+    {
+        return await (
+            from rs in dbContext.RelationSourceReferences
+            join source in dbContext.Sources on rs.SourceId equals source.Id
+            where rs.RelationId == relationId
+            orderby source.Title
+            select new RelationSourceItemDto(
+                source.Id,
+                source.Slug,
+                source.Title,
+                source.Author,
+                source.SourceType,
+                source.Url,
+                source.PublicationYear,
+                source.Language,
+                source.LicenseNote,
+                source.Notes,
+                rs.Usage)
+        ).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<SearchResultDto>> SearchEntitiesAsync(string query, string languageCode, CancellationToken cancellationToken)
+    {
+        var pattern = $"%{query}%";
+        var candidates = new List<(SearchResultDto Result, int Rank)>();
+
+        var entityMatches = await dbContext.GraphEntities
+            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .Where(x => EF.Functions.ILike(x.Name, pattern) || EF.Functions.ILike(x.Slug, pattern))
+            .Select(x => new { x.Slug, x.Name, x.EntityType, Exact = x.Name.ToLower() == query.ToLower() || x.Slug.ToLower() == query.ToLower() })
+            .ToListAsync(cancellationToken);
+
+        candidates.AddRange(entityMatches.Select(x => (
+            new SearchResultDto(x.Slug, x.Name, x.EntityType, x.Exact ? "entity_exact" : "entity_partial", null, null),
+            x.Exact ? 0 : 3)));
+
+        var translationMatches = await (
+            from translation in dbContext.EntityTranslations
+            join entity in dbContext.GraphEntities on translation.EntityId equals entity.Id
+            where entity.DeletedAt == null
+                && entity.Status != EntityStatus.Deleted
+                && translation.Status != EntityStatus.Deleted
+                && translation.LanguageCode == languageCode
+                && EF.Functions.ILike(translation.Name, pattern)
+            select new
+            {
+                entity.Slug,
+                translation.Name,
+                entity.EntityType,
+                Exact = translation.Name.ToLower() == query.ToLower()
+            }
+        ).ToListAsync(cancellationToken);
+
+        candidates.AddRange(translationMatches.Select(x => (
+            new SearchResultDto(x.Slug, x.Name, x.EntityType, x.Exact ? "translation_exact" : "translation_partial", null, null),
+            x.Exact ? 1 : 4)));
+
+        var aliasMatches = await (
+            from alias in dbContext.EntityAliases
+            join entity in dbContext.GraphEntities on alias.EntityId equals entity.Id
+            where entity.DeletedAt == null
+                && entity.Status != EntityStatus.Deleted
+                && EF.Functions.ILike(alias.Alias, pattern)
+            select new
+            {
+                entity.Slug,
+                entity.Name,
+                entity.EntityType,
+                alias.Alias,
+                alias.AliasType,
+                Exact = alias.Alias.ToLower() == query.ToLower()
+            }
+        ).ToListAsync(cancellationToken);
+
+        candidates.AddRange(aliasMatches.Select(x => (
+            new SearchResultDto(x.Slug, x.Name, x.EntityType, x.Exact ? "alias_exact" : "alias_partial", x.Alias, x.AliasType),
+            x.Exact ? 2 : 5)));
+
+        return candidates
+            .OrderBy(x => x.Rank)
+            .ThenBy(x => x.Result.Name)
+            .GroupBy(x => x.Result.Slug)
+            .Select(x => x.First().Result)
+            .Take(20)
+            .ToArray();
+    }
+
+    public async Task<GraphPathResponseDto?> FindGraphPathAsync(string fromSlug, string toSlug, int maxDepth, string languageCode, CancellationToken cancellationToken)
+    {
+        var entities = await dbContext.GraphEntities
+            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .ToListAsync(cancellationToken);
+        var entityBySlug = entities.ToDictionary(x => x.Slug, StringComparer.OrdinalIgnoreCase);
+        if (!entityBySlug.TryGetValue(fromSlug, out var from) || !entityBySlug.TryGetValue(toSlug, out var to))
+        {
+            return null;
+        }
+
+        var relations = await dbContext.GraphRelations
+            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .ToListAsync(cancellationToken);
+        var adjacency = new Dictionary<Guid, List<(Guid NextId, GraphRelation Relation)>>();
+        foreach (var relation in relations)
+        {
+            AddEdge(relation.SourceEntityId, relation.TargetEntityId, relation);
+            AddEdge(relation.TargetEntityId, relation.SourceEntityId, relation);
+        }
+
+        var queue = new Queue<Guid>();
+        var visited = new HashSet<Guid> { from.Id };
+        var previous = new Dictionary<Guid, (Guid PreviousId, GraphRelation Relation)>();
+        var depth = new Dictionary<Guid, int> { [from.Id] = 0 };
+        queue.Enqueue(from.Id);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current == to.Id) break;
+            if (depth[current] >= maxDepth) continue;
+            if (!adjacency.TryGetValue(current, out var edges)) continue;
+
+            foreach (var (nextId, relation) in edges)
+            {
+                if (!visited.Add(nextId)) continue;
+                previous[nextId] = (current, relation);
+                depth[nextId] = depth[current] + 1;
+                queue.Enqueue(nextId);
+            }
+        }
+
+        if (!visited.Contains(to.Id))
+        {
+            return null;
+        }
+
+        var pathEntityIds = new List<Guid>();
+        var pathRelations = new List<GraphRelation>();
+        var cursor = to.Id;
+        pathEntityIds.Add(cursor);
+        while (cursor != from.Id)
+        {
+            var step = previous[cursor];
+            pathRelations.Add(step.Relation);
+            cursor = step.PreviousId;
+            pathEntityIds.Add(cursor);
+        }
+
+        pathEntityIds.Reverse();
+        pathRelations.Reverse();
+        var entityById = entities.ToDictionary(x => x.Id);
+        var translations = await dbContext.EntityTranslations
+            .Where(x => pathEntityIds.Contains(x.EntityId) && x.LanguageCode == languageCode && x.Status != EntityStatus.Deleted)
+            .ToDictionaryAsync(x => x.EntityId, cancellationToken);
+
+        var nodes = pathEntityIds
+            .Select(id =>
+            {
+                var entity = entityById[id];
+                return new GraphPathNodeDto(entity.Id, entity.Slug, translations.TryGetValue(id, out var translation) ? translation.Name : entity.Name, entity.EntityType);
+            })
+            .ToArray();
+
+        var edgesDto = pathRelations
+            .Select(relation => new GraphPathEdgeDto(
+                relation.Id,
+                entityById[relation.SourceEntityId].Slug,
+                entityById[relation.TargetEntityId].Slug,
+                RelationTypeFormatter.ToSnakeCase(relation.RelationType)))
+            .ToArray();
+
+        return new GraphPathResponseDto(from.Slug, to.Slug, edgesDto.Length, nodes, edgesDto);
+
+        void AddEdge(Guid sourceId, Guid targetId, GraphRelation relation)
+        {
+            if (!adjacency.TryGetValue(sourceId, out var edges))
+            {
+                edges = [];
+                adjacency[sourceId] = edges;
+            }
+
+            edges.Add((targetId, relation));
+        }
     }
 
     public async Task<EntityTranslation?> GetTranslationAsync(Guid entityId, string languageCode, CancellationToken cancellationToken)

@@ -6,6 +6,8 @@ using MythosGraph.Application.Features.Entities.Commands.UpdateEntity;
 using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Features.Entities.Queries.GetEntityRelationsBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntityBySlug;
+using MythosGraph.Application.Features.Entities.Queries.GetEntitySourcesBySlug;
+using MythosGraph.Application.Features.Entities.Queries.GetEntityTaxonomiesBySlug;
 using MythosGraph.Application.Features.Entities.Queries.ListEntities;
 using MythosGraph.Domain.Enums;
 
@@ -32,6 +34,25 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetEntityRelationsBySlugQuery(slug, lang), cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/taxonomies")]
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityTaxonomiesDto>> GetTaxonomies(
+        string slug,
+        [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetEntityTaxonomiesBySlugQuery(slug, lang), cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/sources")]
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntitySourcesDto>> GetSources(
+        string slug,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetEntitySourcesBySlugQuery(slug), cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 

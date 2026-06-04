@@ -1,4 +1,5 @@
 using MediatR;
+using MythosGraph.Application.Common;
 using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Interfaces;
 
@@ -32,7 +33,7 @@ public sealed class GetEntityRelationsBySlugQueryHandler(IEntityRepository repos
                 ?? await repository.GetTranslationAsync(counterpart.Id, "en", cancellationToken);
 
             items.Add(new EntityRelationItemDto(
-                relation.RelationType.ToString(),
+                RelationTypeFormatter.ToSnakeCase(relation.RelationType),
                 isOutgoing ? "outgoing" : "incoming",
                 counterpart.Slug,
                 counterpartTranslation?.Name ?? counterpart.Name));

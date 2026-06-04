@@ -1,3 +1,7 @@
+using MythosGraph.Application.Features.Entities.DTOs;
+using MythosGraph.Application.Features.Graph.DTOs;
+using MythosGraph.Application.Features.Relations.DTOs;
+using MythosGraph.Application.Features.Search.DTOs;
 using MythosGraph.Domain.Entities;
 using MythosGraph.Domain.Enums;
 
@@ -33,5 +37,10 @@ public interface IEntityRepository
     Task<IReadOnlyCollection<GraphRelation>> GetRelationsByEntitySlugAsync(string slug, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<EntityAlias>> GetAliasesByEntityIdAsync(Guid entityId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<Taxonomy>> GetTaxonomiesByEntityIdAsync(Guid entityId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<EntitySourceItemDto>> GetSourcesByEntityIdAsync(Guid entityId, CancellationToken cancellationToken);
+    Task<bool> RelationExistsAsync(Guid relationId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<RelationSourceItemDto>> GetSourcesByRelationIdAsync(Guid relationId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<SearchResultDto>> SearchEntitiesAsync(string query, string languageCode, CancellationToken cancellationToken);
+    Task<GraphPathResponseDto?> FindGraphPathAsync(string fromSlug, string toSlug, int maxDepth, string languageCode, CancellationToken cancellationToken);
     Task<EntityTranslation?> GetTranslationAsync(Guid entityId, string languageCode, CancellationToken cancellationToken);
 }
