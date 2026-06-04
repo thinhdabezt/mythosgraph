@@ -285,6 +285,46 @@ export type HomeStats = {
   traditions: number;
 };
 
+export type GraphPathStep = {
+  from: string;
+  fromName: string;
+  relation: string;
+  to: string;
+  toName: string;
+};
+
+export type GraphPathResponse = {
+  from: { slug: string; name: string };
+  to: { slug: string; name: string };
+  pathFound: boolean;
+  distance: number;
+  path: GraphPathStep[];
+};
+
+type GraphPathNodeDto = {
+  id?: string;
+  slug: string;
+  name: string;
+  entityType?: EntityType;
+};
+
+type GraphPathEdgeDto = {
+  id?: string;
+  sourceSlug: string;
+  targetSlug: string;
+  relationType: string;
+};
+
+type GraphPathBackendResponseDto = {
+  from: string | { slug: string; name: string };
+  to: string | { slug: string; name: string };
+  distance?: number | null;
+  pathFound?: boolean;
+  path?: Array<{ from: string; relation: string; to: string }>;
+  nodes?: GraphPathNodeDto[];
+  edges?: GraphPathEdgeDto[];
+};
+
 export type ApiSnapshot = {
   id: string;
   path: string;
@@ -426,6 +466,83 @@ export async function getHomeStats(): Promise<HomeStats> {
     relations,
     traditions: traditions.size,
   };
+}
+
+function toEndpoint(value: string | { slug: string; name: string }, names: Map<string, string>) {
+  if (typeof value === "string") {
+    return { slug: value, name: names.get(value) ?? value };
+  }
+
+  return value;
+}
+
+function normalizeGraphPath(dto: GraphPathBackendResponseDto): GraphPathResponse {
+  const names = new Map<string, string>();
+  dto.nodes?.forEach((node) => names.set(node.slug, node.name));
+
+  if (dto.path) {
+    const from = toEndpoint(dto.from, names);
+    const to = toEndpoint(dto.to, names);
+
+    return {
+      from,
+      to,
+      pathFound: dto.pathFound ?? dto.path.length > 0,
+      distance: dto.distance ?? dto.path.length,
+      path: dto.path.map((step) => ({
+        ...step,
+        fromName: names.get(step.from) ?? step.from,
+        toName: names.get(step.to) ?? step.to,
+      })),
+    };
+  }
+
+  const edges = dto.edges ?? [];
+  const from = toEndpoint(dto.from, names);
+  const to = toEndpoint(dto.to, names);
+
+  return {
+    from,
+    to,
+    pathFound: edges.length > 0,
+    distance: dto.distance ?? edges.length,
+    path: edges.map((edge) => ({
+      from: edge.sourceSlug,
+      fromName: names.get(edge.sourceSlug) ?? edge.sourceSlug,
+      relation: edge.relationType,
+      to: edge.targetSlug,
+      toName: names.get(edge.targetSlug) ?? edge.targetSlug,
+    })),
+  };
+}
+
+export async function findGraphPath(params: {
+  from: string;
+  to: string;
+  maxDepth: number;
+}): Promise<GraphPathResponse> {
+  const query = toQueryString({
+    from: params.from,
+    to: params.to,
+    maxDepth: Math.min(Math.max(params.maxDepth, 1), 6),
+  });
+
+  try {
+    const response = await apiRequest<GraphPathBackendResponseDto>(`/api/v1/graph/path${query}`);
+    return normalizeGraphPath(response);
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) {
+      return {
+        from: { slug: params.from, name: params.from },
+        to: { slug: params.to, name: params.to },
+        pathFound: false,
+        distance: 0,
+        path: [],
+      };
+    }
+
+    throw error;
+  }
 }
 
 function shuffleItems<T>(items: T[]): T[] {
