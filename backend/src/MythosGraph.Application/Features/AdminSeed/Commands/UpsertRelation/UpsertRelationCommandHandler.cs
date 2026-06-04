@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using MythosGraph.Application.Interfaces;
 using MythosGraph.Domain.Entities;
@@ -19,7 +20,7 @@ public sealed class UpsertRelationCommandHandler(IEntityRepository repository) :
             SourceEntityId = source.Id,
             TargetEntityId = target.Id,
             RelationType = request.Request.RelationType,
-            MetadataJson = request.Request.MetadataJson,
+            MetadataJson = request.Request.Metadata.HasValue ? JsonSerializer.Serialize(request.Request.Metadata.Value) : request.Request.MetadataJson,
             Status = request.Request.Status,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow

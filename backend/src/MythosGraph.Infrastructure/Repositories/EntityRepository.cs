@@ -18,6 +18,13 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         var normalizedSlug = slug.Trim();
         return await dbContext.GraphEntities.FirstOrDefaultAsync(x => x.Slug == normalizedSlug && x.DeletedAt == null, cancellationToken);
     }
+
+    public async Task<Tradition?> GetTraditionBySlugAsync(string slug, CancellationToken cancellationToken)
+    {
+        var normalizedSlug = slug.Trim();
+        return await dbContext.Traditions.FirstOrDefaultAsync(x => x.Slug == normalizedSlug, cancellationToken);
+    }
+
     public async Task<bool> SlugExistsAsync(string slug, Guid? excludeId, CancellationToken cancellationToken)
     {
         var normalizedSlug = slug.Trim();
@@ -143,6 +150,12 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         return existing;
     }
 
+    public async Task<Taxonomy?> GetTaxonomyBySlugAsync(string slug, CancellationToken cancellationToken)
+    {
+        var normalizedSlug = slug.Trim();
+        return await dbContext.Taxonomies.FirstOrDefaultAsync(x => x.Slug == normalizedSlug, cancellationToken);
+    }
+
     public async Task<Taxonomy> UpsertTaxonomyAsync(Taxonomy taxonomy, CancellationToken cancellationToken)
     {
         var existing = await dbContext.Taxonomies.FirstOrDefaultAsync(x => x.Slug == taxonomy.Slug, cancellationToken);
@@ -160,6 +173,12 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         existing.UpdatedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         return existing;
+    }
+
+    public async Task<Source?> GetSourceBySlugAsync(string slug, CancellationToken cancellationToken)
+    {
+        var normalizedSlug = slug.Trim();
+        return await dbContext.Sources.FirstOrDefaultAsync(x => x.Slug == normalizedSlug, cancellationToken);
     }
 
     public async Task<Source> UpsertSourceAsync(Source source, CancellationToken cancellationToken)

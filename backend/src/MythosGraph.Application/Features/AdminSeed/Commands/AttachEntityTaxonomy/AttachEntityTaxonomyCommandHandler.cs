@@ -1,6 +1,5 @@
 using MediatR;
 using MythosGraph.Application.Interfaces;
-using MythosGraph.Domain.Entities;
 
 namespace MythosGraph.Application.Features.AdminSeed.Commands.AttachEntityTaxonomy;
 
@@ -11,15 +10,8 @@ public sealed class AttachEntityTaxonomyCommandHandler(IEntityRepository reposit
         var entity = await repository.GetBySlugEntityAsync(request.EntitySlug, cancellationToken)
             ?? throw new KeyNotFoundException($"Entity '{request.EntitySlug}' was not found.");
 
-        var taxonomy = await repository.UpsertTaxonomyAsync(new Taxonomy
-        {
-            Id = Guid.NewGuid(),
-            Slug = request.Request.TaxonomySlug.Trim(),
-            Name = request.Request.TaxonomySlug.Trim(),
-            Category = "general",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        }, cancellationToken);
+        var taxonomy = await repository.GetTaxonomyBySlugAsync(request.Request.TaxonomySlug, cancellationToken)
+            ?? throw new KeyNotFoundException($"Taxonomy '{request.Request.TaxonomySlug}' was not found.");
 
         await repository.AddEntityTaxonomyAsync(entity.Id, taxonomy.Id, cancellationToken);
     }

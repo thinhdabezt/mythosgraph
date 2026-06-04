@@ -25,8 +25,11 @@ public interface IEntityRepository
     Task AddAsync(GraphEntity entity, CancellationToken cancellationToken);
     Task UpdateAsync(GraphEntity entity, CancellationToken cancellationToken);
     Task<GraphEntity?> GetBySlugEntityAsync(string slug, CancellationToken cancellationToken);
+    Task<Tradition?> GetTraditionBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<Tradition> UpsertTraditionAsync(Tradition tradition, CancellationToken cancellationToken);
+    Task<Taxonomy?> GetTaxonomyBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<Taxonomy> UpsertTaxonomyAsync(Taxonomy taxonomy, CancellationToken cancellationToken);
+    Task<Source?> GetSourceBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<Source> UpsertSourceAsync(Source source, CancellationToken cancellationToken);
     Task<EntityTranslation> UpsertEntityTranslationAsync(EntityTranslation translation, CancellationToken cancellationToken);
     Task<EntityAlias> UpsertEntityAliasAsync(EntityAlias alias, CancellationToken cancellationToken);

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using MythosGraph.Api.Extensions;
 using MythosGraph.Api.Middlewares;
+using MythosGraph.Api.Serialization;
 using MythosGraph.Infrastructure.Persistence;
 using MythosGraph.Infrastructure.Persistence.Seeders;
 
@@ -19,7 +20,24 @@ builder.Services.Configure<AdminSeedOptions>(builder.Configuration.GetSection("A
 builder.Services.AddScoped<AdminUserSeeder>();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddApplicationServices();
-builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendDev", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new FlexibleJsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -71,6 +89,7 @@ app.UseSwaggerUI(options =>
 });
 
 app.UseMiddleware<ApiExceptionMiddleware>();
+app.UseCors("FrontendDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

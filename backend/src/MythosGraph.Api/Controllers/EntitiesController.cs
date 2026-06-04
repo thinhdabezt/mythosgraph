@@ -79,10 +79,10 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
 public sealed class AdminEntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpPost]
-    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<Guid>> Create([Microsoft.AspNetCore.Mvc.FromBody] CreateEntityRequest request, CancellationToken cancellationToken)
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<object>> Create([Microsoft.AspNetCore.Mvc.FromBody] CreateEntityRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new CreateEntityCommand(request), cancellationToken);
-        return CreatedAtAction(nameof(EntitiesController.GetBySlug), "Entities", new { slug = request.Slug }, id);
+        return CreatedAtAction(nameof(EntitiesController.GetBySlug), "Entities", new { slug = request.Slug }, new { id });
     }
 
     [Microsoft.AspNetCore.Mvc.HttpPut("{id:guid}")]

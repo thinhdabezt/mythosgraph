@@ -19,45 +19,45 @@ namespace MythosGraph.Api.Controllers;
 public sealed class AdminSeedController(IMediator mediator) : ControllerBase
 {
     [HttpPost("api/v1/admin/traditions")]
-    public async Task<ActionResult<Guid>> UpsertTradition([FromBody] UpsertTraditionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertTradition([FromBody] UpsertTraditionRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTraditionCommand(request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/taxonomies")]
-    public async Task<ActionResult<Guid>> UpsertTaxonomy([FromBody] UpsertTaxonomyRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertTaxonomy([FromBody] UpsertTaxonomyRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTaxonomyCommand(request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/sources")]
-    public async Task<ActionResult<Guid>> UpsertSource([FromBody] UpsertSourceRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertSource([FromBody] UpsertSourceRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertSourceCommand(request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/relations")]
-    public async Task<ActionResult<Guid>> UpsertRelation([FromBody] UpsertRelationRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertRelation([FromBody] UpsertRelationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertRelationCommand(request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/entities/{slug}/translations")]
-    public async Task<ActionResult<Guid>> UpsertEntityTranslation(string slug, [FromBody] UpsertEntityTranslationRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertEntityTranslation(string slug, [FromBody] UpsertEntityTranslationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityTranslationCommand(slug, request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/entities/{slug}/aliases")]
-    public async Task<ActionResult<Guid>> UpsertEntityAlias(string slug, [FromBody] UpsertEntityAliasRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpsertEntityAlias(string slug, [FromBody] UpsertEntityAliasRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityAliasCommand(slug, request), cancellationToken);
-        return Ok(id);
+        return Ok(new { id });
     }
 
     [HttpPost("api/v1/admin/entities/{slug}/taxonomies")]

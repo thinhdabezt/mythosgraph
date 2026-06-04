@@ -26,5 +26,12 @@ public enum RelationType
     RequiresRitual = 22,
     LocatedIn = 23,
     SpouseOf = 24,
-    RomanEquivalentOf = 25
+    RomanEquivalentOf = 25,
+    PrecedesInCosmogony = 26,
+    ConsortOf = 27,
+    CastratedBy = 28,
+    ImprisonedIn = 29,
+    RulesOver = 30,
+    Castrates = 31,
+    OverthrownBy = 32
 }

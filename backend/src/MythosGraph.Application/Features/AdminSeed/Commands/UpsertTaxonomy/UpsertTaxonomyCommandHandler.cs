@@ -11,15 +11,8 @@ public sealed class UpsertTaxonomyCommandHandler(IEntityRepository repository) :
         Guid? parentId = null;
         if (!string.IsNullOrWhiteSpace(request.Request.ParentSlug))
         {
-            var parent = await repository.UpsertTaxonomyAsync(new Taxonomy
-            {
-                Id = Guid.NewGuid(),
-                Slug = request.Request.ParentSlug.Trim(),
-                Name = request.Request.ParentSlug.Trim(),
-                Category = request.Request.Category,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            }, cancellationToken);
+            var parent = await repository.GetTaxonomyBySlugAsync(request.Request.ParentSlug, cancellationToken)
+                ?? throw new KeyNotFoundException($"Parent taxonomy '{request.Request.ParentSlug}' was not found.");
             parentId = parent.Id;
         }
 

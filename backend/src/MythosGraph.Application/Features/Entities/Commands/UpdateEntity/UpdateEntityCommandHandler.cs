@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MythosGraph.Application.Interfaces;
 
@@ -17,12 +18,20 @@ public sealed class UpdateEntityCommandHandler(IEntityRepository repository) : M
         var entity = await repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new KeyNotFoundException($"Entity with id '{request.Id}' was not found.");
 
+        var traditionId = request.Request.TraditionId;
+        if (!string.IsNullOrWhiteSpace(request.Request.TraditionSlug))
+        {
+            var tradition = await repository.GetTraditionBySlugAsync(request.Request.TraditionSlug, cancellationToken)
+                ?? throw new KeyNotFoundException($"Tradition '{request.Request.TraditionSlug}' was not found.");
+            traditionId = tradition.Id;
+        }
+
         entity.Slug = request.Request.Slug.Trim();
         entity.Name = request.Request.Name.Trim();
         entity.EntityType = request.Request.EntityType;
-        entity.TraditionId = request.Request.TraditionId;
+        entity.TraditionId = traditionId;
         entity.Summary = request.Request.Summary;
-        entity.MetadataJson = request.Request.MetadataJson;
+        entity.MetadataJson = request.Request.Metadata.HasValue ? JsonSerializer.Serialize(request.Request.Metadata.Value) : request.Request.MetadataJson;
         entity.Status = request.Request.Status;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 

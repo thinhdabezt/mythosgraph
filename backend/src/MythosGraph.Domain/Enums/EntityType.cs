@@ -17,5 +17,11 @@ public enum EntityType
     Domain = 13,
     Ritual = 14,
     Location = 15,
-    Concept = 16
+    Concept = 16,
+    PrimordialDeity = 17,
+    MythGroup = 18,
+    Titan = 19,
+    Personification = 20,
+    Realm = 21,
+    SeaDeity = 22
 }

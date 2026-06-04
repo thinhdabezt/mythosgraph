@@ -1,7 +1,5 @@
 using MediatR;
 using MythosGraph.Application.Interfaces;
-using MythosGraph.Domain.Entities;
-using MythosGraph.Domain.Enums;
 
 namespace MythosGraph.Application.Features.AdminSeed.Commands.AttachRelationSource;
 
@@ -9,15 +7,8 @@ public sealed class AttachRelationSourceCommandHandler(IEntityRepository reposit
 {
     public async Task Handle(AttachRelationSourceCommand request, CancellationToken cancellationToken)
     {
-        var source = await repository.UpsertSourceAsync(new Source
-        {
-            Id = Guid.NewGuid(),
-            Slug = request.Request.SourceSlug.Trim(),
-            Title = request.Request.SourceSlug.Trim(),
-            SourceType = SourceType.Other,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        }, cancellationToken);
+        var source = await repository.GetSourceBySlugAsync(request.Request.SourceSlug, cancellationToken)
+            ?? throw new KeyNotFoundException($"Source '{request.Request.SourceSlug}' was not found.");
 
         await repository.AddRelationSourceAsync(request.RelationId, source.Id, request.Request.Usage, cancellationToken);
     }
