@@ -241,6 +241,13 @@ function ExplorePageContent() {
     <main className="min-h-screen bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-7xl">
         <header className="mb-8 space-y-2">
+          <Link
+            href="/"
+            className="group mb-4 inline-flex items-center gap-2 font-mono text-xs text-zinc-500 transition-colors hover:text-amber-400"
+          >
+            <span className="transform transition-transform group-hover:-translate-x-1">←</span>
+            Back to Dashboard
+          </Link>
           <h1 className="font-serif text-3xl sm:text-4xl">Explore Mythology Data Grid</h1>
           <p className="text-sm text-zinc-400">Found {meta.total} entities</p>
         </header>

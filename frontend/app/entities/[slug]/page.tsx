@@ -245,6 +245,13 @@ export default function EntityDetailPage({ params }: PageProps) {
             )}
           />
           <div className="relative z-10 max-w-4xl">
+            <Link
+              href="/explore"
+              className="group mb-6 inline-flex items-center gap-2 font-mono text-xs text-zinc-500 transition-colors hover:text-amber-400"
+            >
+              <span className="transform transition-transform group-hover:-translate-x-1">←</span>
+              Back to Data Grid
+            </Link>
             <h1 className="font-serif text-4xl text-zinc-50 sm:text-6xl">{entity.name}</h1>
             <div className="mt-4 flex flex-wrap items-center gap-3 font-mono text-xs text-zinc-400">
               <span className="inline-flex items-center gap-1.5">

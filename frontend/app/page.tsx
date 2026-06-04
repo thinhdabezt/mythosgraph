@@ -272,7 +272,12 @@ export default function HomePage() {
           <div className="hidden items-center gap-6 text-sm text-zinc-300 md:flex">
             <Link href="#" className="transition hover:text-violet-300">Docs</Link>
             <Link href="/explore" className="transition hover:text-violet-300">CreatureDex</Link>
-            <Link href="/explore" className="transition hover:text-violet-300">Graph Explorer</Link>
+            <Link
+              href="/graph-explorer"
+              className="transition hover:text-violet-300"
+            >
+              Graph Explorer
+            </Link>
             <Link href="/explore" className="transition hover:text-violet-300">Explore</Link>
             <Link
               href="https://github.com/thinhdabezt/mythosgraph"
