@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useState } from "react";
@@ -28,10 +29,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getHomeStats, getRandomEntitySnapshots, type ApiSnapshot } from "@/lib/api-client";
 
 type StatItem = {
   label: string;
-  value: number;
+  value: number | string;
   description: string;
   icon: ComponentType<{ className?: string }>;
   accentClass: string;
@@ -45,36 +47,26 @@ type FeaturedItem = {
   danger?: "Low" | "Medium" | "High";
 };
 
-type ApiMock = {
-  id: string;
-  label: string;
-  response: Record<string, unknown>;
-};
-
 type EndpointItem = {
   id: string;
   path: string;
-  mockId: ApiMock["id"];
 };
 
-const stats: StatItem[] = [
+const statTemplates: Omit<StatItem, "value">[] = [
   {
     label: "Entities",
-    value: 50,
     description: "Curated mythological figures & artifacts",
     icon: Globe,
     accentClass: "text-violet-400",
   },
   {
     label: "Relations",
-    value: 100,
     description: "Active knowledge graph connections",
     icon: GitFork,
     accentClass: "text-emerald-400",
   },
   {
     label: "Traditions",
-    value: 3,
     description: "Norse, Greek, and Vietnamese Folklore",
     icon: BookOpen,
     accentClass: "text-amber-400",
@@ -126,64 +118,13 @@ const featuredCreatures: FeaturedItem[] = [
   },
 ];
 
-const apiMocks: ApiMock[] = [
-  {
-    id: "entity",
-    label: "GET /entities/son-tinh",
-    response: {
-      id: "ent_son_tinh",
-      slug: "son-tinh",
-      name: "Son Tinh",
-      type: "deity",
-      tradition: "vietnamese-folklore",
-      metadata: {
-        domains: ["mountains", "weather", "protection"],
-        alignment: "neutral-good",
-      },
-      links: {
-        relations: [
-          { type: "opposes", target: "thuy-tinh" },
-          { type: "protects", target: "van-lang" },
-        ],
-        neighbors: ["thuy-tinh", "my-nuong", "hung-kings"],
-      },
-    },
-  },
-  {
-    id: "path",
-    label: "GET /graph/path",
-    response: {
-      source: "son-tinh",
-      target: "ma-da",
-      path: [
-        { node: "son-tinh", relation: "guards" },
-        { node: "river-border", relation: "haunted-by" },
-        { node: "ma-da", relation: "manifests" },
-      ],
-      hops: 3,
-    },
-  },
-  {
-    id: "creature",
-    label: "GET /creatures/ma-da",
-    response: {
-      id: "cre_ma_da",
-      name: "Ma Da",
-      type: "water-spirit",
-      dangerLevel: "medium",
-      habitats: ["river", "floodplain"],
-      signs: ["cold-current", "echoing-whispers"],
-    },
-  },
-];
-
 const trendingEntities = ["Sơn Tinh", "Thor", "Hydra", "Ma Da"];
 
-const endpoints: EndpointItem[] = [
-  { id: "entities", path: "GET /entities/son-tinh", mockId: "entity" },
-  { id: "graph", path: "GET /graph/path", mockId: "path" },
-  { id: "creatures", path: "GET /creatures/ma-da", mockId: "creature" },
-];
+const snapshotPlaceholder: ApiSnapshot = {
+  id: "entity-loading",
+  path: "GET /entities/{random-slug}",
+  response: { status: "loading", message: "Selecting a random entity..." },
+};
 
 function renderJson(value: unknown, indent = 0): ReactNode {
   const pad = "  ".repeat(indent);
@@ -255,8 +196,34 @@ function renderJson(value: unknown, indent = 0): ReactNode {
 export default function HomePage() {
   const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("entities");
+  const [activeTab, setActiveTab] = useState<string>("entity-loading");
   const [heroSearch, setHeroSearch] = useState("");
+  const [snapshotVisitKey] = useState(() => crypto.randomUUID());
+  const homeStatsQuery = useQuery({
+    queryKey: ["home-stats"],
+    queryFn: getHomeStats,
+    staleTime: 60_000,
+  });
+  const snapshotQuery = useQuery({
+    queryKey: ["interactive-api-snapshot", snapshotVisitKey],
+    queryFn: () => getRandomEntitySnapshots(5),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  const stats: StatItem[] = statTemplates.map((stat) => {
+    const value =
+      stat.label === "Entities"
+        ? homeStatsQuery.data?.entities
+        : stat.label === "Relations"
+          ? homeStatsQuery.data?.relations
+          : homeStatsQuery.data?.traditions;
+
+    return {
+      ...stat,
+      value: homeStatsQuery.isLoading ? "..." : value ?? "N/A",
+    };
+  });
 
   const handleCopyJson = async (id: string, payload: Record<string, unknown>) => {
     await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
@@ -264,10 +231,20 @@ export default function HomePage() {
     setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1200);
   };
 
-  const selectedEndpoint =
-    endpoints.find((endpoint) => endpoint.id === activeTab) ?? endpoints[0];
-  const selectedMock =
-    apiMocks.find((mock) => mock.id === selectedEndpoint.mockId) ?? apiMocks[0];
+  const snapshots = snapshotQuery.data?.length ? snapshotQuery.data : [snapshotPlaceholder];
+  const endpoints: EndpointItem[] = snapshots.map((snapshot) => ({
+    id: snapshot.id,
+    path: snapshot.path,
+  }));
+  const selectedSnapshot = snapshots.find((snapshot) => snapshot.id === activeTab) ?? snapshots[0];
+  const activeEndpointId = selectedSnapshot.id;
+
+  const responsePayload = snapshotQuery.isError
+    ? {
+        status: "error",
+        message: "Unable to load a random API snapshot.",
+      }
+    : selectedSnapshot.response;
 
   const handleHeroSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -480,7 +457,7 @@ export default function HomePage() {
                 {/* Buttons Grid: Separated cleanly, using flex column distribution */}
                 <div className="flex flex-col gap-3 w-full">
                   {endpoints.map((endpoint) => {
-                    const isActive = activeTab === endpoint.id;
+                    const isActive = activeEndpointId === endpoint.id;
 
                     return (
                       <button
@@ -501,7 +478,7 @@ export default function HomePage() {
 
               <div className="bg-zinc-950/20 p-6 lg:col-span-2">
                 <motion.div
-                  key={selectedMock.id}
+                  key={selectedSnapshot.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2 }}
@@ -522,16 +499,17 @@ export default function HomePage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => handleCopyJson(selectedMock.id, selectedMock.response)}
+                      onClick={() => handleCopyJson(selectedSnapshot.id, responsePayload)}
+                      disabled={snapshotQuery.isLoading || snapshotQuery.isError}
                       className="h-8 gap-1.5 rounded-md border border-zinc-700/70 px-2.5 font-mono text-[11px] text-zinc-300 hover:bg-zinc-800/80 hover:text-zinc-100"
                     >
                       <Clipboard className="h-3.5 w-3.5" />
-                      {copiedId === selectedMock.id ? "Copied" : "Copy JSON"}
+                      {copiedId === selectedSnapshot.id ? "Copied" : "Copy JSON"}
                     </Button>
                   </div>
                   <div className="flex-1 overflow-auto p-6">
                     <pre className="font-mono text-xs leading-6 text-zinc-200">
-                      {renderJson(selectedMock.response)}
+                      {renderJson(responsePayload)}
                     </pre>
                   </div>
                 </motion.div>

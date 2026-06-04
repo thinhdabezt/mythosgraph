@@ -24,47 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-type EntityType =
-  | "God"
-  | "Goddess"
-  | "MythFigure"
-  | "Hero"
-  | "Creature"
-  | "Artifact"
-  | "Weapon"
-  | "Legend";
-
-type Tradition =
-  | "Vietnamese Folklore"
-  | "Greek Mythology"
-  | "Norse Mythology";
-
-type Domain = "Mountain" | "Earth" | "Water" | "Sky" | "Thunder";
-
-type SortBy = "name" | "type" | "tradition";
-
-type SortDirection = "asc" | "desc";
-
-type Entity = {
-  id: string;
-  slug: string;
-  name: string;
-  summary: string;
-  type: EntityType;
-  tradition: Tradition;
-  domain: Domain;
-};
-
-type EntityQueryResponse = {
-  data: Entity[];
-  meta: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  };
-};
+import {
+  ApiClientError,
+  listEntities,
+  type EntityQueryResponse,
+  type EntityType,
+  type SortBy,
+  type SortDirection,
+} from "@/lib/api-client";
 
 const PAGE_SIZE = 5;
 
@@ -79,65 +46,7 @@ const ENTITY_TYPES: EntityType[] = [
   "Legend",
 ];
 
-const DOMAINS: Domain[] = ["Mountain", "Earth", "Water", "Sky", "Thunder"];
-
-const MOCK_ENTITIES: Entity[] = [
-  {
-    id: "1",
-    slug: "son-tinh",
-    name: "Son Tinh",
-    summary: "Mountain guardian who protects the land against recurring floods.",
-    type: "MythFigure",
-    tradition: "Vietnamese Folklore",
-    domain: "Mountain",
-  },
-  {
-    id: "2",
-    slug: "thor",
-    name: "Thor",
-    summary: "Thunder god and protector of Midgard, wielder of immense force.",
-    type: "God",
-    tradition: "Norse Mythology",
-    domain: "Thunder",
-  },
-  {
-    id: "3",
-    slug: "mjolnir",
-    name: "Mjolnir",
-    summary: "Enchanted hammer forged to channel thunder and divine authority.",
-    type: "Artifact",
-    tradition: "Norse Mythology",
-    domain: "Sky",
-  },
-  {
-    id: "4",
-    slug: "hydra",
-    name: "Hydra",
-    summary: "Regenerating serpent beast of Lerna with multi-headed resilience.",
-    type: "Creature",
-    tradition: "Greek Mythology",
-    domain: "Water",
-  },
-  {
-    id: "5",
-    slug: "ma-da",
-    name: "Ma Da",
-    summary: "River spirit known for eerie whispers and dangerous currents.",
-    type: "Creature",
-    tradition: "Vietnamese Folklore",
-    domain: "Water",
-  },
-];
-
-type QueryParams = {
-  search: string;
-  type: string;
-  tradition: string;
-  domain: string;
-  page: number;
-  sortBy: SortBy;
-  sortDirection: SortDirection;
-};
+const DOMAINS = ["Mountain", "Earth", "Water", "Sky", "Thunder"];
 
 type SelectOption = {
   value: string;
@@ -200,10 +109,6 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debounced;
 }
 
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, "-");
-}
-
 function getEntityBadgeClass(type: EntityType): string {
   if (type === "God" || type === "Goddess") {
     return "border-violet-500/20 bg-violet-500/10 text-violet-400";
@@ -220,75 +125,6 @@ function getEntityBadgeClass(type: EntityType): string {
   return "border-zinc-700/50 bg-zinc-800/50 text-zinc-400";
 }
 
-function applyMockQuery(params: QueryParams): EntityQueryResponse {
-  const searchLower = params.search.trim().toLowerCase();
-
-  let filtered = MOCK_ENTITIES.filter((entity) => {
-    const matchesSearch =
-      searchLower.length === 0 ||
-      entity.name.toLowerCase().includes(searchLower) ||
-      entity.summary.toLowerCase().includes(searchLower);
-
-    const matchesType = params.type === "all" || entity.type === params.type;
-    const matchesTradition =
-      params.tradition === "all" || slugify(entity.tradition) === params.tradition;
-    const matchesDomain = params.domain === "all" || entity.domain === params.domain;
-
-    return matchesSearch && matchesType && matchesTradition && matchesDomain;
-  });
-
-  filtered = filtered.sort((a, b) => {
-    const left = a[params.sortBy].toLowerCase();
-    const right = b[params.sortBy].toLowerCase();
-    const result = left.localeCompare(right);
-    return params.sortDirection === "asc" ? result : -result;
-  });
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safePage = Math.min(Math.max(params.page, 1), totalPages);
-  const start = (safePage - 1) * PAGE_SIZE;
-  const data = filtered.slice(start, start + PAGE_SIZE);
-
-  return {
-    data,
-    meta: {
-      total,
-      page: safePage,
-      pageSize: PAGE_SIZE,
-      totalPages,
-    },
-  };
-}
-
-async function fetchEntities(params: QueryParams): Promise<EntityQueryResponse> {
-  const query = new URLSearchParams({
-    search: params.search,
-    type: params.type,
-    tradition: params.tradition,
-    domain: params.domain,
-    page: String(params.page),
-    sortBy: params.sortBy,
-    sortDirection: params.sortDirection,
-  });
-
-  try {
-    const response = await fetch(`/api/v1/entities?${query.toString()}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch entities.");
-    }
-
-    const payload = (await response.json()) as EntityQueryResponse;
-    if (!payload?.data || !payload?.meta) {
-      throw new Error("Invalid API response shape.");
-    }
-
-    return payload;
-  } catch {
-    return applyMockQuery(params);
-  }
-}
-
 function ExplorePageContent() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get("search") ?? "";
@@ -303,7 +139,7 @@ function ExplorePageContent() {
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const query = useQuery({
+  const query = useQuery<EntityQueryResponse, ApiClientError>({
     queryKey: [
       "explore-entities",
       debouncedSearch,
@@ -315,12 +151,14 @@ function ExplorePageContent() {
       sortDirection,
     ],
     queryFn: () =>
-      fetchEntities({
+      listEntities({
         search: debouncedSearch,
+        q: debouncedSearch,
         type: entityType,
         tradition,
         domain,
         page,
+        pageSize: PAGE_SIZE,
         sortBy,
         sortDirection,
       }),
@@ -533,7 +371,7 @@ function ExplorePageContent() {
                       </TableCell>
                       <TableCell>
                         <Link
-                          href={`/traditions/${slugify(entity.tradition)}`}
+                          href={`/traditions/${entity.traditionSlug}`}
                           className="text-sm text-violet-300 transition hover:text-amber-300"
                         >
                           {entity.tradition}

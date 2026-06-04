@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { use, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import ReactFlow, {
   Background,
@@ -15,7 +15,6 @@ import {
   BookOpen,
   Database,
   ExternalLink,
-  FileText,
   Shield,
   Sparkles,
   Sword,
@@ -25,200 +24,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ApiClientError,
+  getEntityDetail,
+  getEntityRelations,
+  getEntitySources,
+  type EntityDetail,
+  type EntityRelationsResponse,
+  type EntitySource,
+  type EntityType,
+} from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-type EntityType = "God" | "Goddess" | "MythFigure" | "Creature" | "Artifact" | "Weapon" | "Legend";
-
-type EntityDetail = {
-  id: string;
-  slug: string;
-  name: string;
-  entityType: EntityType;
-  tradition: string;
-  traditionId: string;
-  status: string;
-  summary: string;
-  createdAt: string;
-  apiStatusCode: number;
-  metadata: {
-    domains: string[];
-    alignment?: string;
-  };
-};
-
-type EntityRelation = {
-  relationType: string;
-  targetName: string;
-  targetSlug: string;
-  direction: "outgoing" | "incoming";
-};
-
-type EntityRelationsResponse = {
-  sourceSlug: string;
-  relations: EntityRelation[];
-  neighbors: EntityRelation[];
-};
-
-type EntitySource = {
-  id: string;
-  title: string;
-  author: string;
-  sourceType: string;
-  publicationYear: number;
-  notes: string;
-};
-
 interface PageProps {
-  params: { slug: string };
-}
-
-const MOCK_DETAILS: Record<string, EntityDetail> = {
-  "son-tinh": {
-    id: "ent_son_tinh",
-    slug: "son-tinh",
-    name: "Son Tinh",
-    entityType: "MythFigure",
-    tradition: "Vietnamese Mythology",
-    traditionId: "vietnamese-mythology",
-    status: "canonical",
-    summary:
-      "A mountain spirit and protector figure associated with earth, highlands, and the recurring struggle against destructive floods.",
-    createdAt: "2026-05-28T09:20:00.000Z",
-    apiStatusCode: 200,
-    metadata: {
-      domains: ["Mountain", "Earth", "Protection"],
-      alignment: "protective-neutral",
-    },
-  },
-  thor: {
-    id: "ent_thor",
-    slug: "thor",
-    name: "Thor",
-    entityType: "God",
-    tradition: "Norse Mythology",
-    traditionId: "norse-mythology",
-    status: "canonical",
-    summary:
-      "A thunder god associated with storms, strength, protection, and the enchanted hammer Mjolnir.",
-    createdAt: "2026-05-29T10:10:00.000Z",
-    apiStatusCode: 200,
-    metadata: {
-      domains: ["Thunder", "Sky"],
-      alignment: "protective-chaotic",
-    },
-  },
-};
-
-const MOCK_RELATIONS: Record<string, EntityRelationsResponse> = {
-  "son-tinh": {
-    sourceSlug: "son-tinh",
-    relations: [
-      {
-        relationType: "rival_of",
-        targetName: "Thuy Tinh",
-        targetSlug: "thuy-tinh",
-        direction: "outgoing",
-      },
-      {
-        relationType: "appears_in",
-        targetName: "Son Tinh - Thuy Tinh",
-        targetSlug: "son-tinh-thuy-tinh",
-        direction: "outgoing",
-      },
-      {
-        relationType: "has_domain",
-        targetName: "Mountain",
-        targetSlug: "mountain",
-        direction: "outgoing",
-      },
-    ],
-    neighbors: [
-      {
-        relationType: "rival_of",
-        targetName: "Thuy Tinh",
-        targetSlug: "thuy-tinh",
-        direction: "outgoing",
-      },
-      {
-        relationType: "appears_in",
-        targetName: "Son Tinh - Thuy Tinh",
-        targetSlug: "son-tinh-thuy-tinh",
-        direction: "outgoing",
-      },
-      {
-        relationType: "has_domain",
-        targetName: "Mountain",
-        targetSlug: "mountain",
-        direction: "outgoing",
-      },
-    ],
-  },
-  thor: {
-    sourceSlug: "thor",
-    relations: [
-      {
-        relationType: "wields",
-        targetName: "Mjolnir",
-        targetSlug: "mjolnir",
-        direction: "outgoing",
-      },
-    ],
-    neighbors: [
-      {
-        relationType: "wields",
-        targetName: "Mjolnir",
-        targetSlug: "mjolnir",
-        direction: "outgoing",
-      },
-    ],
-  },
-};
-
-const MOCK_SOURCES: Record<string, EntitySource[]> = {
-  "son-tinh": [
-    {
-      id: "src_001",
-      title: "Vietnamese Folklore Reference Notes",
-      author: "MythosGraph Editorial Index",
-      sourceType: "curated-summary",
-      publicationYear: 2026,
-      notes:
-        "Metadata-only citation record. The API stores source attribution, not copyrighted full text.",
-    },
-    {
-      id: "src_002",
-      title: "Son Tinh - Thuy Tinh Motif Record",
-      author: "Public Domain Motif Catalog",
-      sourceType: "motif-index",
-      publicationYear: 2025,
-      notes:
-        "Used for relation modeling, domain tags, and canonical entity linkage.",
-    },
-  ],
-  thor: [
-    {
-      id: "src_thor_001",
-      title: "Norse Mythology Entity Index",
-      author: "MythosGraph Editorial Index",
-      sourceType: "curated-summary",
-      publicationYear: 2026,
-      notes:
-        "Metadata-only citation record for Thor. The API stores source attribution, not copyrighted full text.",
-    },
-  ],
-};
-
-async function fetchWithFallback<T>(url: string, fallback: T | null): Promise<T | null> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
-    }
-
-    return (await response.json()) as T;
-  } catch {
-    return fallback;
-  }
+  params: Promise<{ slug: string }>;
 }
 
 function getEntityGlowClass(entityType: EntityType): string {
@@ -247,6 +66,13 @@ function getEntityIconElement(entityType: EntityType) {
   }
 
   return <Shield className="h-4 w-4 text-violet-400" />;
+}
+
+function formatRelationType(type: string) {
+  return type
+    .replace(/([A-Z])/g, "_$1")
+    .toLowerCase()
+    .replace(/^_+|_+$/g, "");
 }
 
 function LoadingShell() {
@@ -288,33 +114,21 @@ function NotFoundShell({ slug }: { slug: string }) {
 }
 
 export default function EntityDetailPage({ params }: PageProps) {
-  const { slug } = params;
+  const { slug } = use(params);
 
-  const detailQuery = useQuery({
+  const detailQuery = useQuery<EntityDetail, ApiClientError>({
     queryKey: ["entity-detail", slug],
-    queryFn: () =>
-      fetchWithFallback<EntityDetail>(
-        `/api/v1/entities/${slug}`,
-        MOCK_DETAILS[slug] ?? null
-      ),
+    queryFn: () => getEntityDetail(slug),
   });
 
-  const relationsQuery = useQuery({
+  const relationsQuery = useQuery<EntityRelationsResponse, ApiClientError>({
     queryKey: ["entity-relations", slug],
-    queryFn: () =>
-      fetchWithFallback<EntityRelationsResponse>(
-        `/api/v1/entities/${slug}/relations`,
-        MOCK_RELATIONS[slug] ?? null
-      ),
+    queryFn: () => getEntityRelations(slug),
   });
 
-  const sourcesQuery = useQuery({
+  const sourcesQuery = useQuery<EntitySource[], ApiClientError>({
     queryKey: ["entity-sources", slug],
-    queryFn: () =>
-      fetchWithFallback<EntitySource[]>(
-        `/api/v1/entities/${slug}/sources`,
-        MOCK_SOURCES[slug] ?? null
-      ),
+    queryFn: () => getEntitySources(slug),
   });
 
   const entity = detailQuery.data;
@@ -335,9 +149,16 @@ export default function EntityDetailPage({ params }: PageProps) {
       return { nodes: [] as Node[], edges: [] as Edge[] };
     }
 
+    const centerPosition = { x: 420, y: 240 };
+    const dx = 320;
+    const dy = 180;
+    const uniqueNeighbors = Array.from(
+      new Map(relations.neighbors.map((neighbor) => [neighbor.targetSlug, neighbor])).values()
+    );
+
     const centerNode: Node = {
       id: entity.slug,
-      position: { x: 250, y: 160 },
+      position: centerPosition,
       data: { label: entity.name },
       style: {
         background: "rgba(245, 158, 11, 0.1)",
@@ -349,16 +170,28 @@ export default function EntityDetailPage({ params }: PageProps) {
       },
     };
 
-    const outerNodes = relations.neighbors.map((neighbor, index) => {
-      const angle = (index / Math.max(relations.neighbors.length, 1)) * Math.PI * 2;
-      const radius = 170;
+    const layoutSlots = [
+      { x: centerPosition.x + dx, y: centerPosition.y },
+      { x: centerPosition.x - dx, y: centerPosition.y },
+      { x: centerPosition.x, y: centerPosition.y - dy },
+      { x: centerPosition.x, y: centerPosition.y + dy },
+      { x: centerPosition.x + dx, y: centerPosition.y - dy },
+      { x: centerPosition.x + dx, y: centerPosition.y + dy },
+      { x: centerPosition.x - dx, y: centerPosition.y - dy },
+      { x: centerPosition.x - dx, y: centerPosition.y + dy },
+    ];
+
+    const outerNodes = uniqueNeighbors.map((neighbor, index) => {
+      const slot = layoutSlots[index % layoutSlots.length];
+      const tier = Math.floor(index / layoutSlots.length);
+      const position = {
+        x: slot.x + tier * 110,
+        y: slot.y + (index % 2 === 0 ? tier * 60 : tier * -60),
+      };
 
       return {
         id: neighbor.targetSlug,
-        position: {
-          x: 250 + Math.cos(angle) * radius,
-          y: 160 + Math.sin(angle) * radius,
-        },
+        position,
         data: { label: neighbor.targetName },
         style: {
           background: "rgba(24, 24, 27, 0.9)",
@@ -370,16 +203,25 @@ export default function EntityDetailPage({ params }: PageProps) {
       } satisfies Node;
     });
 
-    const edges = relations.neighbors.map((neighbor) => ({
-      id: `${entity.slug}-${neighbor.targetSlug}`,
-      source: entity.slug,
-      target: neighbor.targetSlug,
-      label: neighbor.relationType,
-      animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: "rgba(245, 158, 11, 0.55)", strokeDasharray: "6 6" },
-      labelStyle: { fill: "#fbbf24", fontFamily: "monospace", fontSize: 10 },
-    }));
+    const edges = relations.neighbors.map((neighbor, index) => {
+      const isIncoming = neighbor.direction === "incoming";
+      const relationLabel = formatRelationType(neighbor.relationType);
+      const source = isIncoming ? neighbor.targetSlug : entity.slug;
+      const target = isIncoming ? entity.slug : neighbor.targetSlug;
+
+      return {
+        id: `${source}-${relationLabel}-${target}-${index}`,
+        source,
+        target,
+        label: relationLabel,
+        animated: true,
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#4b5563", strokeDasharray: "5 5", strokeWidth: 1.5 },
+        labelBgStyle: { fill: "#09090b", stroke: "#27272a", strokeWidth: 1 },
+        labelStyle: { fill: "#fbbf24", fontFamily: "monospace", fontSize: "10px" },
+      };
+    });
 
     return { nodes: [centerNode, ...outerNodes], edges };
   }, [entity, relations]);
@@ -437,7 +279,7 @@ export default function EntityDetailPage({ params }: PageProps) {
               <TabsTrigger
                 key={tab}
                 value={tab}
-                className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 px-4 py-2 border border-transparent rounded-md text-sm font-mono text-zinc-500 hover:text-zinc-300 transition-all duration-200"
+                className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30 border border-transparent rounded-md px-4 py-2 text-sm font-mono text-zinc-500 transition-all duration-200"
               >
                 {tab === "graph" ? "Graph Preview" : tab}
               </TabsTrigger>
@@ -465,7 +307,12 @@ export default function EntityDetailPage({ params }: PageProps) {
                 title="System Technical Logs"
                 rows={[
                   ["Slug", entity.slug],
-                  ["Created At", new Date(entity.createdAt).toLocaleString()],
+                  [
+                    "Created At",
+                    entity.createdAt && !entity.createdAt.includes("1970")
+                      ? new Date(entity.createdAt).toLocaleDateString()
+                      : "Curated Content",
+                  ],
                   ["API Status", String(entity.apiStatusCode)],
                 ]}
               />
@@ -474,26 +321,45 @@ export default function EntityDetailPage({ params }: PageProps) {
 
           <TabsContent value="relations">
             <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              {relations.relations.map((relation) => (
-                <div
-                  key={`${relation.relationType}-${relation.targetSlug}`}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-800/70 bg-zinc-950/35 px-4 py-3"
-                >
-                  <span className="font-serif text-base text-zinc-100">{entity.name}</span>
-                  <span className="font-mono text-zinc-600">--</span>
-                  <code className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 font-mono text-xs text-amber-300">
-                    {relation.relationType}
-                  </code>
-                  <span className="font-mono text-zinc-600">--&gt;</span>
-                  <Link
-                    href={`/entities/${relation.targetSlug}`}
-                    className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-amber-300"
+              {relations.relations.map((relation) => {
+                const isIncoming = relation.direction === "incoming";
+                const relationLabel = formatRelationType(relation.relationType);
+
+                return (
+                  <div
+                    key={`${relation.relationType}-${relation.targetSlug}`}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-800/70 bg-zinc-950/35 px-4 py-3"
                   >
-                    {relation.targetName}
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              ))}
+                    {isIncoming ? (
+                      <Link
+                        href={`/entities/${relation.targetSlug}`}
+                        className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-amber-300"
+                      >
+                        {relation.targetName}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : (
+                      <span className="font-serif text-base text-zinc-100">{entity.name}</span>
+                    )}
+                    <span className="font-mono text-zinc-600">--</span>
+                    <code className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 font-mono text-xs text-amber-300">
+                      {relationLabel}
+                    </code>
+                    <span className="font-mono text-zinc-600">--&gt;</span>
+                    {isIncoming ? (
+                      <span className="font-serif text-base text-zinc-100">{entity.name}</span>
+                    ) : (
+                      <Link
+                        href={`/entities/${relation.targetSlug}`}
+                        className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-amber-300"
+                      >
+                        {relation.targetName}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </TabsContent>
 
@@ -515,32 +381,58 @@ export default function EntityDetailPage({ params }: PageProps) {
           </TabsContent>
 
           <TabsContent value="sources">
-            <div className="grid gap-4 lg:grid-cols-2">
-              {sources.map((source) => (
-                <div
-                  key={source.id}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2 border-b border-zinc-800 pb-3 font-mono text-xs text-zinc-500">
-                    <FileText className="h-4 w-4 text-amber-400" />
-                    Citation Metadata
-                  </div>
-                  <pre className="overflow-auto whitespace-pre-wrap font-mono text-xs leading-6 text-zinc-300">
-                    {JSON.stringify(
-                      {
-                        title: source.title,
-                        author: source.author,
-                        sourceType: source.sourceType,
-                        publicationYear: source.publicationYear,
-                        notes: source.notes,
-                      },
-                      null,
-                      2
-                    )}
-                  </pre>
-                </div>
-              ))}
-            </div>
+            {sources.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/20 p-8 text-center font-mono text-xs text-zinc-600">
+                No external citations attached to this entity. Content is community-curated.
+              </div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {sources.map((source) => (
+                  <article
+                    key={source.id}
+                    className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 backdrop-blur-md transition-all duration-200 hover:border-zinc-700"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2">
+                        <h3 className="font-serif text-lg font-bold leading-snug text-zinc-200">
+                          {source.title}
+                        </h3>
+                        <p className="font-mono text-xs text-zinc-500">
+                          By {source.author} • Pub:{" "}
+                          {source.publicationYear > 0 ? source.publicationYear : "Unknown"}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-zinc-700 bg-zinc-950/70 font-mono text-[10px] uppercase tracking-wider text-zinc-400"
+                      >
+                        {source.sourceType}
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-lg border border-zinc-900 bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-emerald-400/90">
+                      {source.notes}
+                    </div>
+
+                    {source.url ? (
+                      <div className="mt-auto space-y-2 border-t border-zinc-800/80 pt-3">
+                        <Link
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-fit items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/50 px-3 py-2 font-mono text-xs text-zinc-300 transition hover:border-amber-500/40 hover:text-amber-300"
+                        >
+                          View Digital Source <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                        <p className="font-mono text-[11px] leading-relaxed text-zinc-600">
+                          {source.licenseNote ?? "For research and curation purposes only."}
+                        </p>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
