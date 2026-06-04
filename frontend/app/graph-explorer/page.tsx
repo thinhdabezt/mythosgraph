@@ -77,58 +77,6 @@ function formatRelation(type: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function buildGraph(path: GraphPathResponse | undefined) {
-  if (!path?.pathFound || path.path.length === 0) {
-    return { nodes: [] as Node[], edges: [] as Edge[] };
-  }
-
-  const ordered = new Map<string, string>();
-  path.path.forEach((step) => {
-    ordered.set(step.from, step.fromName);
-    ordered.set(step.to, step.toName);
-  });
-
-  const entityEntries = Array.from(ordered.entries());
-  const destinationSlug = path.to.slug;
-  const originSlug = path.from.slug;
-
-  const nodes: Node[] = entityEntries.map(([slug, name], index) => {
-    const isEndpoint = slug === originSlug || slug === destinationSlug;
-
-    return {
-      id: slug,
-      position: { x: index * 260, y: 150 },
-      data: { label: name },
-      style: {
-        background: isEndpoint ? "rgba(245,158,11,0.10)" : "rgba(24,24,27,0.92)",
-        border: isEndpoint
-          ? "1px solid rgba(245,158,11,0.50)"
-          : "1px solid rgba(113,113,122,0.45)",
-        boxShadow: isEndpoint ? "0 0 22px rgba(245,158,11,0.12)" : "none",
-        color: isEndpoint ? "#fbbf24" : "#d4d4d8",
-        fontFamily: "monospace",
-        fontSize: 12,
-        minWidth: 130,
-      },
-    };
-  });
-
-  const edges: Edge[] = path.path.map((step, index) => ({
-    id: `${step.from}-${formatRelation(step.relation)}-${step.to}-${index}`,
-    source: step.from,
-    target: step.to,
-    label: formatRelation(step.relation),
-    type: "smoothstep",
-    animated: true,
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: "#4b5563", strokeDasharray: "5 5", strokeWidth: 1.5 },
-    labelBgStyle: { fill: "#09090b", stroke: "#27272a", strokeWidth: 1 },
-    labelStyle: { fill: "#fbbf24", fontFamily: "monospace", fontSize: "10px" },
-  }));
-
-  return { nodes, edges };
-}
-
 export default function GraphExplorerPage() {
   const [fromSlug, setFromSlug] = useState("son-tinh");
   const [toSlug, setToSlug] = useState("water");
@@ -167,7 +115,75 @@ export default function GraphExplorerPage() {
   }, [entitiesQuery.data]);
 
   const path = pathQuery.data;
-  const graph = useMemo(() => buildGraph(path), [path]);
+  const graph = useMemo(() => {
+    if (!path || !path.path || path.path.length === 0) {
+      return { nodes: [] as Node[], edges: [] as Edge[] };
+    }
+
+    const generatedNodes: Node[] = [];
+    const generatedEdges: Edge[] = [];
+    const entitySet = new Set<string>();
+    const entityLabels = new Map<string, string>();
+
+    path.path.forEach((step) => {
+      entitySet.add(step.from);
+      entitySet.add(step.to);
+      entityLabels.set(step.from, step.fromName);
+      entityLabels.set(step.to, step.toName);
+    });
+
+    const uniqueEntities = Array.from(entitySet);
+
+    uniqueEntities.forEach((entitySlug, index) => {
+      const isStart = index === 0;
+      const isEnd = index === uniqueEntities.length - 1;
+
+      generatedNodes.push({
+        id: entitySlug,
+        position: { x: index * 280 + 50, y: 150 },
+        data: {
+          label:
+            entityLabels.get(entitySlug) ??
+            entitySlug.charAt(0).toUpperCase() + entitySlug.slice(1),
+        },
+        style: {
+          background: "#09090b",
+          color: "#e4e4e7",
+          border:
+            isStart || isEnd ? "1px solid rgba(245, 158, 11, 0.4)" : "1px solid #27272a",
+          boxShadow: isStart || isEnd ? "0 0 15px rgba(245, 158, 11, 0.05)" : "none",
+          borderRadius: "8px",
+          padding: "10px 18px",
+          fontFamily: "monospace",
+          fontSize: "12px",
+          minWidth: "140px",
+          textAlign: "center",
+        },
+      });
+    });
+
+    path.path.forEach((step, index) => {
+      generatedEdges.push({
+        id: `edge-${index}-${step.from}-${step.to}`,
+        source: step.from,
+        target: step.to,
+        type: "smoothstep",
+        animated: true,
+        label: formatRelation(step.relation),
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#4b5563", strokeWidth: 1.5 },
+        labelStyle: { fill: "#fbbf24", fontSize: "10px", fontFamily: "monospace" },
+        labelBgStyle: {
+          fill: "#09090b",
+          stroke: "#27272a",
+          strokeWidth: 1,
+          fillOpacity: 0.9,
+        },
+      });
+    });
+
+    return { nodes: generatedNodes, edges: generatedEdges };
+  }, [path]);
 
   const handleFindPath = () => {
     setHasSearched(true);
@@ -180,6 +196,15 @@ export default function GraphExplorerPage() {
 
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="space-y-3">
+          <div>
+            <Link
+              href="/"
+              className="group mb-4 inline-flex items-center gap-2 font-mono text-xs text-zinc-500 transition-colors hover:text-amber-400"
+            >
+              <span className="transform transition-transform group-hover:-translate-x-1">←</span>
+              Back to Dashboard
+            </Link>
+          </div>
           <Badge className="border-violet-500/20 bg-violet-500/10 font-mono text-xs text-violet-300">
             MythosGraph Pathfinding Console
           </Badge>
@@ -250,7 +275,7 @@ export default function GraphExplorerPage() {
 
         {path?.pathFound ? (
           <section className="space-y-5">
-            <div className="relative mt-6 min-h-[400px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+            <div className="relative mt-4 h-[400px] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/20">
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(113,113,122,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(113,113,122,0.08)_1px,transparent_1px)] bg-[size:28px_28px]" />
               <ReactFlow
                 nodes={graph.nodes}
