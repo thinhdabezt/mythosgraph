@@ -278,6 +278,9 @@ export default function HomePage() {
             >
               Graph Explorer
             </Link>
+            <Link href="/playground" className="transition hover:text-violet-300">
+              API Playground
+            </Link>
             <Link href="/explore" className="transition hover:text-violet-300">Explore</Link>
             <Link
               href="https://github.com/thinhdabezt/mythosgraph"
