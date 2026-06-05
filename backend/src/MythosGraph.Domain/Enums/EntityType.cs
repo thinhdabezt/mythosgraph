@@ -23,5 +23,8 @@ public enum EntityType
     Titan = 19,
     Personification = 20,
     Realm = 21,
-    SeaDeity = 22
+    SeaDeity = 22,
+    Titaness = 23,
+    Nymph = 24,
+    Mortal = 25
 }

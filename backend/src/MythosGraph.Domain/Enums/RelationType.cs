@@ -33,5 +33,6 @@ public enum RelationType
     ImprisonedIn = 29,
     RulesOver = 30,
     Castrates = 31,
-    OverthrownBy = 32
+    OverthrownBy = 32,
+    BornFrom = 33
 }
