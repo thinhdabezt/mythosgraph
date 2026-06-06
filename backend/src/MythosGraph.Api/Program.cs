@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using MythosGraph.Api.Caching;
 using MythosGraph.Api.Extensions;
 using MythosGraph.Api.Middlewares;
 using MythosGraph.Api.Serialization;
@@ -38,6 +39,16 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new FlexibleJsonStringEnumConverter());
     });
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy(CachePolicies.PublicApiGet, policy =>
+    {
+        policy
+            .Expire(TimeSpan.FromSeconds(60))
+            .SetVaryByQuery("*")
+            .Tag(CacheTags.PublicApiGet);
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -90,6 +101,7 @@ app.UseSwaggerUI(options =>
 
 app.UseMiddleware<ApiExceptionMiddleware>();
 app.UseCors("FrontendDev");
+app.UseOutputCache();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

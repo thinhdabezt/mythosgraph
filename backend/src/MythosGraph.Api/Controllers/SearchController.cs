@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using MythosGraph.Api.Caching;
 using MythosGraph.Application.Features.Search.DTOs;
 using MythosGraph.Application.Features.Search.Queries.SearchEntities;
 
@@ -10,6 +12,7 @@ namespace MythosGraph.Api.Controllers;
 public sealed class SearchController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<ActionResult<SearchResponseDto>> Search(
         [FromQuery(Name = "q")] string query,
         [FromQuery] string? lang,

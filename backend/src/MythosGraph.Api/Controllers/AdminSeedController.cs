@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using MythosGraph.Api.Caching;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachEntitySource;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachEntityTaxonomy;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachRelationSource;
@@ -16,12 +18,13 @@ namespace MythosGraph.Api.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Admin")]
-public sealed class AdminSeedController(IMediator mediator) : ControllerBase
+public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore outputCacheStore) : ControllerBase
 {
     [HttpPost("api/v1/admin/traditions")]
     public async Task<ActionResult<object>> UpsertTradition([FromBody] UpsertTraditionRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTraditionCommand(request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -29,6 +32,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<object>> UpsertTaxonomy([FromBody] UpsertTaxonomyRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTaxonomyCommand(request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -36,6 +40,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<object>> UpsertSource([FromBody] UpsertSourceRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertSourceCommand(request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -43,6 +48,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<object>> UpsertRelation([FromBody] UpsertRelationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertRelationCommand(request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -50,6 +56,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<object>> UpsertEntityTranslation(string slug, [FromBody] UpsertEntityTranslationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityTranslationCommand(slug, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -57,6 +64,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<object>> UpsertEntityAlias(string slug, [FromBody] UpsertEntityAliasRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityAliasCommand(slug, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
 
@@ -64,6 +72,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> AttachTaxonomy(string slug, [FromBody] AttachEntityTaxonomyRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachEntityTaxonomyCommand(slug, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
 
@@ -71,6 +80,7 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> AttachSource(string slug, [FromBody] AttachEntitySourceRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachEntitySourceCommand(slug, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
 
@@ -78,6 +88,12 @@ public sealed class AdminSeedController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> AttachRelationSource(Guid id, [FromBody] AttachRelationSourceRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachRelationSourceCommand(id, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
+    }
+
+    private ValueTask EvictPublicReadCacheAsync(CancellationToken cancellationToken)
+    {
+        return outputCacheStore.EvictByTagAsync(CacheTags.PublicApiGet, cancellationToken);
     }
 }

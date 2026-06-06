@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.OutputCaching;
+using MythosGraph.Api.Caching;
 using MythosGraph.Application.Features.Entities.Commands.CreateEntity;
 using MythosGraph.Application.Features.Entities.Commands.SoftDeleteEntity;
 using MythosGraph.Application.Features.Entities.Commands.UpdateEntity;
@@ -18,6 +20,7 @@ namespace MythosGraph.Api.Controllers;
 public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityDetailDto>> GetBySlug(
         string slug,
         [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
@@ -28,6 +31,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
     }
 
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/relations")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityRelationsDto>> GetRelations(
         string slug,
         [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
@@ -38,6 +42,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
     }
 
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/taxonomies")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityTaxonomiesDto>> GetTaxonomies(
         string slug,
         [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
@@ -48,6 +53,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
     }
 
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/sources")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntitySourcesDto>> GetSources(
         string slug,
         CancellationToken cancellationToken)
@@ -57,6 +63,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
     }
 
     [Microsoft.AspNetCore.Mvc.HttpGet]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityListResponseDto>> List(
         [Microsoft.AspNetCore.Mvc.FromQuery] int page = 1,
         [Microsoft.AspNetCore.Mvc.FromQuery] int pageSize = 20,
@@ -76,12 +83,13 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
 [Microsoft.AspNetCore.Mvc.ApiController]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/admin/entities")]
 [Authorize(Roles = "Admin")]
-public sealed class AdminEntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
+public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStore outputCacheStore) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpPost]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<object>> Create([Microsoft.AspNetCore.Mvc.FromBody] CreateEntityRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new CreateEntityCommand(request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return CreatedAtAction(nameof(EntitiesController.GetBySlug), "Entities", new { slug = request.Slug }, new { id });
     }
 
@@ -89,6 +97,7 @@ public sealed class AdminEntitiesController(IMediator mediator) : Microsoft.AspN
     public async Task<Microsoft.AspNetCore.Mvc.IActionResult> Update(Guid id, [Microsoft.AspNetCore.Mvc.FromBody] UpdateEntityRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new UpdateEntityCommand(id, request), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
 
@@ -96,6 +105,12 @@ public sealed class AdminEntitiesController(IMediator mediator) : Microsoft.AspN
     public async Task<Microsoft.AspNetCore.Mvc.IActionResult> SoftDelete(Guid id, CancellationToken cancellationToken)
     {
         await mediator.Send(new SoftDeleteEntityCommand(id), cancellationToken);
+        await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
+    }
+
+    private ValueTask EvictPublicReadCacheAsync(CancellationToken cancellationToken)
+    {
+        return outputCacheStore.EvictByTagAsync(CacheTags.PublicApiGet, cancellationToken);
     }
 }
