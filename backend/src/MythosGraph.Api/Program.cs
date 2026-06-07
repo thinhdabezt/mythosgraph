@@ -1,8 +1,12 @@
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using MythosGraph.Api.Caching;
 using MythosGraph.Api.Extensions;
 using MythosGraph.Api.Middlewares;
+using MythosGraph.Api.RateLimiting;
 using MythosGraph.Api.Serialization;
 using MythosGraph.Infrastructure.Persistence;
 using MythosGraph.Infrastructure.Persistence.Seeders;
@@ -48,6 +52,53 @@ builder.Services.AddOutputCache(options =>
             .SetVaryByQuery("*")
             .Tag(CacheTags.PublicApiGet);
     });
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        }
+
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new { message = "Too many requests." }, cancellationToken);
+    };
+
+    options.AddPolicy(RateLimitPolicies.PublicRead, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy(RateLimitPolicies.AuthLogin, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy(RateLimitPolicies.AdminWrite, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetUserPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 1500,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -100,10 +151,34 @@ app.UseSwaggerUI(options =>
 });
 
 app.UseMiddleware<ApiExceptionMiddleware>();
+app.UseRouting();
 app.UseCors("FrontendDev");
-app.UseOutputCache();
 app.UseAuthentication();
+app.UseRateLimiter();
+app.UseOutputCache();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string GetClientPartitionKey(HttpContext httpContext)
+{
+    return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-client";
+}
+
+static string GetUserPartitionKey(HttpContext httpContext)
+{
+    var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        return $"user:{userId}";
+    }
+
+    var email = httpContext.User.FindFirstValue(ClaimTypes.Email);
+    if (!string.IsNullOrWhiteSpace(email))
+    {
+        return $"email:{email.ToLowerInvariant()}";
+    }
+
+    return $"ip:{GetClientPartitionKey(httpContext)}";
+}

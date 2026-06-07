@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.RateLimiting;
 using MythosGraph.Api.Caching;
+using MythosGraph.Api.RateLimiting;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachEntitySource;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachEntityTaxonomy;
 using MythosGraph.Application.Features.AdminSeed.Commands.AttachRelationSource;
@@ -18,6 +20,7 @@ namespace MythosGraph.Api.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting(RateLimitPolicies.AdminWrite)]
 public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore outputCacheStore) : ControllerBase
 {
     [HttpPost("api/v1/admin/traditions")]

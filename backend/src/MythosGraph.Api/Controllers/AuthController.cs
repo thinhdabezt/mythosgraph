@@ -3,8 +3,10 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MythosGraph.Api.RateLimiting;
 using MythosGraph.Domain.Enums;
 using MythosGraph.Infrastructure.Persistence;
 using MythosGraph.Infrastructure.Services;
@@ -17,6 +19,7 @@ public sealed class AuthController(MythosGraphDbContext dbContext, IConfiguratio
 {
     [AllowAnonymous]
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var email = request.Email.Trim().ToLowerInvariant();

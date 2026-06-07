@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.RateLimiting;
 using MythosGraph.Api.Caching;
+using MythosGraph.Api.RateLimiting;
 using MythosGraph.Application.Features.Entities.Commands.CreateEntity;
 using MythosGraph.Application.Features.Entities.Commands.SoftDeleteEntity;
 using MythosGraph.Application.Features.Entities.Commands.UpdateEntity;
@@ -17,6 +19,7 @@ namespace MythosGraph.Api.Controllers;
 
 [Microsoft.AspNetCore.Mvc.ApiController]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/entities")]
+[EnableRateLimiting(RateLimitPolicies.PublicRead)]
 public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpGet("{slug}")]
@@ -83,6 +86,7 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
 [Microsoft.AspNetCore.Mvc.ApiController]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/admin/entities")]
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting(RateLimitPolicies.AdminWrite)]
 public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStore outputCacheStore) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpPost]
