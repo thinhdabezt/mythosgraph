@@ -12,7 +12,7 @@ namespace MythosGraph.Api.Controllers;
 [ApiController]
 [Route("api/v1/graph")]
 [EnableRateLimiting(RateLimitPolicies.PublicRead)]
-public sealed class GraphController(IMediator mediator) : ControllerBase
+public sealed class GraphController(IMediator mediator, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("path")]
     [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
@@ -28,7 +28,8 @@ public sealed class GraphController(IMediator mediator) : ControllerBase
             return BadRequest(new { message = "Query parameters 'from' and 'to' are required." });
         }
 
-        var result = await mediator.Send(new FindGraphPathQuery(from, to, maxDepth, lang), cancellationToken);
+        var timeoutMilliseconds = configuration.GetValue("GraphPath:TimeoutMilliseconds", 500);
+        var result = await mediator.Send(new FindGraphPathQuery(from, to, maxDepth, lang, timeoutMilliseconds), cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 }

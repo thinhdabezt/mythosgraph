@@ -25,6 +25,7 @@ builder.Services.Configure<AdminSeedOptions>(builder.Configuration.GetSection("A
 builder.Services.AddScoped<AdminUserSeeder>();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddApplicationServices();
+builder.Services.AddHealthChecks();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendDev", policy =>
@@ -158,6 +159,7 @@ app.UseRateLimiter();
 app.UseOutputCache();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
 

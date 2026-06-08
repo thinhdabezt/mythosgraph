@@ -29,7 +29,6 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
     {
         var normalizedSlug = slug.Trim();
         return await dbContext.GraphEntities
-            .Where(x => x.DeletedAt == null)
             .Where(x => x.Slug == normalizedSlug)
             .Where(x => !excludeId.HasValue || x.Id != excludeId.Value)
             .AnyAsync(cancellationToken);
@@ -50,7 +49,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
             from tradition in traditionJoin.DefaultIfEmpty()
             where entity.Slug == normalizedSlug
                 && entity.DeletedAt == null
-                && entity.Status != EntityStatus.Deleted
+                && entity.Status == EntityStatus.Active
             select new { entity, tradition }
         ).FirstOrDefaultAsync(cancellationToken);
 
@@ -71,7 +70,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         var query = from entity in dbContext.GraphEntities
                     join t in dbContext.Traditions on entity.TraditionId equals t.Id into traditionJoin
                     from t in traditionJoin.DefaultIfEmpty()
-                    where entity.DeletedAt == null && entity.Status != EntityStatus.Deleted
+                    where entity.DeletedAt == null && entity.Status == EntityStatus.Active
                     select new { entity, tradition = t };
 
         if (type.HasValue)
@@ -318,8 +317,13 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         var entity = await GetBySlugEntityAsync(slug, cancellationToken);
         if (entity is null) return Array.Empty<GraphRelation>();
 
+        if (entity.Status != EntityStatus.Active)
+        {
+            return Array.Empty<GraphRelation>();
+        }
+
         return await dbContext.GraphRelations
-            .Where(x => (x.SourceEntityId == entity.Id || x.TargetEntityId == entity.Id) && x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .Where(x => (x.SourceEntityId == entity.Id || x.TargetEntityId == entity.Id) && x.DeletedAt == null && x.Status == EntityStatus.Active)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -367,7 +371,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
     public async Task<bool> RelationExistsAsync(Guid relationId, CancellationToken cancellationToken)
     {
         return await dbContext.GraphRelations
-            .AnyAsync(x => x.Id == relationId && x.DeletedAt == null && x.Status != EntityStatus.Deleted, cancellationToken);
+            .AnyAsync(x => x.Id == relationId && x.DeletedAt == null && x.Status == EntityStatus.Active, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<RelationSourceItemDto>> GetSourcesByRelationIdAsync(Guid relationId, CancellationToken cancellationToken)
@@ -398,7 +402,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         var candidates = new List<(SearchResultDto Result, int Rank)>();
 
         var entityMatches = await dbContext.GraphEntities
-            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .Where(x => x.DeletedAt == null && x.Status == EntityStatus.Active)
             .Where(x => EF.Functions.ILike(x.Name, pattern) || EF.Functions.ILike(x.Slug, pattern))
             .Select(x => new { x.Slug, x.Name, x.EntityType, Exact = x.Name.ToLower() == query.ToLower() || x.Slug.ToLower() == query.ToLower() })
             .ToListAsync(cancellationToken);
@@ -411,8 +415,8 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
             from translation in dbContext.EntityTranslations
             join entity in dbContext.GraphEntities on translation.EntityId equals entity.Id
             where entity.DeletedAt == null
-                && entity.Status != EntityStatus.Deleted
-                && translation.Status != EntityStatus.Deleted
+                && entity.Status == EntityStatus.Active
+                && translation.Status == EntityStatus.Active
                 && translation.LanguageCode == languageCode
                 && EF.Functions.ILike(translation.Name, pattern)
             select new
@@ -432,7 +436,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
             from alias in dbContext.EntityAliases
             join entity in dbContext.GraphEntities on alias.EntityId equals entity.Id
             where entity.DeletedAt == null
-                && entity.Status != EntityStatus.Deleted
+                && entity.Status == EntityStatus.Active
                 && EF.Functions.ILike(alias.Alias, pattern)
             select new
             {
@@ -461,7 +465,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
     public async Task<GraphPathResponseDto?> FindGraphPathAsync(string fromSlug, string toSlug, int maxDepth, string languageCode, CancellationToken cancellationToken)
     {
         var entities = await dbContext.GraphEntities
-            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .Where(x => x.DeletedAt == null && x.Status == EntityStatus.Active)
             .ToListAsync(cancellationToken);
         var entityBySlug = entities.ToDictionary(x => x.Slug, StringComparer.OrdinalIgnoreCase);
         if (!entityBySlug.TryGetValue(fromSlug, out var from) || !entityBySlug.TryGetValue(toSlug, out var to))
@@ -470,7 +474,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         }
 
         var relations = await dbContext.GraphRelations
-            .Where(x => x.DeletedAt == null && x.Status != EntityStatus.Deleted)
+            .Where(x => x.DeletedAt == null && x.Status == EntityStatus.Active)
             .ToListAsync(cancellationToken);
         var adjacency = new Dictionary<Guid, List<(Guid NextId, GraphRelation Relation)>>();
         foreach (var relation in relations)
@@ -522,7 +526,7 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         pathRelations.Reverse();
         var entityById = entities.ToDictionary(x => x.Id);
         var translations = await dbContext.EntityTranslations
-            .Where(x => pathEntityIds.Contains(x.EntityId) && x.LanguageCode == languageCode && x.Status != EntityStatus.Deleted)
+            .Where(x => pathEntityIds.Contains(x.EntityId) && x.LanguageCode == languageCode && x.Status == EntityStatus.Active)
             .ToDictionaryAsync(x => x.EntityId, cancellationToken);
 
         var nodes = pathEntityIds
@@ -559,6 +563,6 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
     {
         var normalized = languageCode.Trim().ToLowerInvariant();
         return await dbContext.EntityTranslations
-            .FirstOrDefaultAsync(x => x.EntityId == entityId && x.LanguageCode == normalized && x.Status != EntityStatus.Deleted, cancellationToken);
+            .FirstOrDefaultAsync(x => x.EntityId == entityId && x.LanguageCode == normalized && x.Status == EntityStatus.Active, cancellationToken);
     }
 }

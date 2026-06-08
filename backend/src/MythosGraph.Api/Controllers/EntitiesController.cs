@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OutputCaching;
@@ -13,6 +15,7 @@ using MythosGraph.Application.Features.Entities.Queries.GetEntityBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntitySourcesBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntityTaxonomiesBySlug;
 using MythosGraph.Application.Features.Entities.Queries.ListEntities;
+using MythosGraph.Application.Interfaces;
 using MythosGraph.Domain.Enums;
 
 namespace MythosGraph.Api.Controllers;
@@ -87,12 +90,16 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
 [Microsoft.AspNetCore.Mvc.Route("api/v1/admin/entities")]
 [Authorize(Roles = "Admin")]
 [EnableRateLimiting(RateLimitPolicies.AdminWrite)]
-public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStore outputCacheStore) : Microsoft.AspNetCore.Mvc.ControllerBase
+public sealed class AdminEntitiesController(
+    IMediator mediator,
+    IOutputCacheStore outputCacheStore,
+    IAuditLogService auditLogService) : Microsoft.AspNetCore.Mvc.ControllerBase
 {
     [Microsoft.AspNetCore.Mvc.HttpPost]
     public async Task<Microsoft.AspNetCore.Mvc.ActionResult<object>> Create([Microsoft.AspNetCore.Mvc.FromBody] CreateEntityRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new CreateEntityCommand(request), cancellationToken);
+        await AuditAsync("Create", "GraphEntity", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return CreatedAtAction(nameof(EntitiesController.GetBySlug), "Entities", new { slug = request.Slug }, new { id });
     }
@@ -101,6 +108,7 @@ public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStor
     public async Task<Microsoft.AspNetCore.Mvc.IActionResult> Update(Guid id, [Microsoft.AspNetCore.Mvc.FromBody] UpdateEntityRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new UpdateEntityCommand(id, request), cancellationToken);
+        await AuditAsync("Update", "GraphEntity", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
@@ -109,6 +117,7 @@ public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStor
     public async Task<Microsoft.AspNetCore.Mvc.IActionResult> SoftDelete(Guid id, CancellationToken cancellationToken)
     {
         await mediator.Send(new SoftDeleteEntityCommand(id), cancellationToken);
+        await AuditAsync("Delete", "GraphEntity", id, new { id }, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
@@ -116,5 +125,21 @@ public sealed class AdminEntitiesController(IMediator mediator, IOutputCacheStor
     private ValueTask EvictPublicReadCacheAsync(CancellationToken cancellationToken)
     {
         return outputCacheStore.EvictByTagAsync(CacheTags.PublicApiGet, cancellationToken);
+    }
+
+    private Task AuditAsync(string action, string entityType, Guid entityId, object payload, CancellationToken cancellationToken)
+    {
+        return auditLogService.LogAsync(GetUserId(), action, entityType, entityId, ToJsonElement(payload), null, cancellationToken);
+    }
+
+    private Guid? GetUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static JsonElement ToJsonElement(object payload)
+    {
+        return JsonSerializer.SerializeToElement(payload);
     }
 }

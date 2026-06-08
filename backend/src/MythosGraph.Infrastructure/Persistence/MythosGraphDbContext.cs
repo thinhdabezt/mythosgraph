@@ -42,6 +42,10 @@ public class MythosGraphDbContext(DbContextOptions<MythosGraphDbContext> options
             .IsUnique()
             .HasFilter("\"Slug\" IS NOT NULL");
 
+        modelBuilder.Entity<GraphEntity>()
+            .HasIndex(x => x.Slug)
+            .IsUnique();
+
         base.OnModelCreating(modelBuilder);
     }
 }

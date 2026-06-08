@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,18 +17,24 @@ using MythosGraph.Application.Features.AdminSeed.Commands.UpsertSource;
 using MythosGraph.Application.Features.AdminSeed.Commands.UpsertTaxonomy;
 using MythosGraph.Application.Features.AdminSeed.Commands.UpsertTradition;
 using MythosGraph.Application.Features.AdminSeed.DTOs;
+using MythosGraph.Application.Interfaces;
 
 namespace MythosGraph.Api.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Admin")]
 [EnableRateLimiting(RateLimitPolicies.AdminWrite)]
-public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore outputCacheStore) : ControllerBase
+public sealed class AdminSeedController(
+    IMediator mediator,
+    IOutputCacheStore outputCacheStore,
+    IAuditLogService auditLogService,
+    IEntityRepository repository) : ControllerBase
 {
     [HttpPost("api/v1/admin/traditions")]
     public async Task<ActionResult<object>> UpsertTradition([FromBody] UpsertTraditionRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTraditionCommand(request), cancellationToken);
+        await AuditAsync("Upsert", "Tradition", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -35,6 +43,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<ActionResult<object>> UpsertTaxonomy([FromBody] UpsertTaxonomyRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertTaxonomyCommand(request), cancellationToken);
+        await AuditAsync("Upsert", "Taxonomy", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -43,6 +52,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<ActionResult<object>> UpsertSource([FromBody] UpsertSourceRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertSourceCommand(request), cancellationToken);
+        await AuditAsync("Upsert", "Source", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -51,6 +61,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<ActionResult<object>> UpsertRelation([FromBody] UpsertRelationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertRelationCommand(request), cancellationToken);
+        await AuditAsync("Upsert", "GraphRelation", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -59,6 +70,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<ActionResult<object>> UpsertEntityTranslation(string slug, [FromBody] UpsertEntityTranslationRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityTranslationCommand(slug, request), cancellationToken);
+        await AuditAsync("Upsert", "EntityTranslation", id, new { slug, request }, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -67,6 +79,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<ActionResult<object>> UpsertEntityAlias(string slug, [FromBody] UpsertEntityAliasRequest request, CancellationToken cancellationToken)
     {
         var id = await mediator.Send(new UpsertEntityAliasCommand(slug, request), cancellationToken);
+        await AuditAsync("Upsert", "EntityAlias", id, new { slug, request }, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return Ok(new { id });
     }
@@ -75,6 +88,8 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<IActionResult> AttachTaxonomy(string slug, [FromBody] AttachEntityTaxonomyRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachEntityTaxonomyCommand(slug, request), cancellationToken);
+        var entity = await repository.GetBySlugEntityAsync(slug, cancellationToken);
+        await AuditAsync("Attach", "EntityTaxonomy", entity?.Id ?? Guid.Empty, new { slug, request }, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
@@ -83,6 +98,8 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<IActionResult> AttachSource(string slug, [FromBody] AttachEntitySourceRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachEntitySourceCommand(slug, request), cancellationToken);
+        var entity = await repository.GetBySlugEntityAsync(slug, cancellationToken);
+        await AuditAsync("Attach", "EntitySource", entity?.Id ?? Guid.Empty, new { slug, request }, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
@@ -91,6 +108,7 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     public async Task<IActionResult> AttachRelationSource(Guid id, [FromBody] AttachRelationSourceRequest request, CancellationToken cancellationToken)
     {
         await mediator.Send(new AttachRelationSourceCommand(id, request), cancellationToken);
+        await AuditAsync("Attach", "RelationSourceReference", id, request, cancellationToken);
         await EvictPublicReadCacheAsync(cancellationToken);
         return NoContent();
     }
@@ -98,5 +116,21 @@ public sealed class AdminSeedController(IMediator mediator, IOutputCacheStore ou
     private ValueTask EvictPublicReadCacheAsync(CancellationToken cancellationToken)
     {
         return outputCacheStore.EvictByTagAsync(CacheTags.PublicApiGet, cancellationToken);
+    }
+
+    private Task AuditAsync(string action, string entityType, Guid entityId, object payload, CancellationToken cancellationToken)
+    {
+        return auditLogService.LogAsync(GetUserId(), action, entityType, entityId, ToJsonElement(payload), null, cancellationToken);
+    }
+
+    private Guid? GetUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static JsonElement ToJsonElement(object payload)
+    {
+        return JsonSerializer.SerializeToElement(payload);
     }
 }

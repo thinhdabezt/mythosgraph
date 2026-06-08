@@ -26,5 +26,10 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next)
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             await context.Response.WriteAsJsonAsync(new ProblemDetails { Title = "Not Found", Detail = ex.Message });
         }
+        catch (TimeoutException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status408RequestTimeout;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails { Title = "Request Timeout", Detail = ex.Message });
+        }
     }
 }

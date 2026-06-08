@@ -2,6 +2,7 @@ using MediatR;
 using MythosGraph.Application.Common;
 using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Interfaces;
+using MythosGraph.Domain.Enums;
 
 namespace MythosGraph.Application.Features.Entities.Queries.GetEntityRelationsBySlug;
 
@@ -10,7 +11,7 @@ public sealed class GetEntityRelationsBySlugQueryHandler(IEntityRepository repos
     public async Task<EntityRelationsDto?> Handle(GetEntityRelationsBySlugQuery request, CancellationToken cancellationToken)
     {
         var entity = await repository.GetBySlugEntityAsync(request.Slug, cancellationToken);
-        if (entity is null)
+        if (entity is null || entity.Status != EntityStatus.Active)
         {
             return null;
         }
@@ -27,7 +28,7 @@ public sealed class GetEntityRelationsBySlugQueryHandler(IEntityRepository repos
             var isOutgoing = relation.SourceEntityId == entity.Id;
             var counterpartId = isOutgoing ? relation.TargetEntityId : relation.SourceEntityId;
             var counterpart = await repository.GetByIdAsync(counterpartId, cancellationToken);
-            if (counterpart is null) continue;
+            if (counterpart is null || counterpart.Status != EntityStatus.Active) continue;
 
             var counterpartTranslation = await repository.GetTranslationAsync(counterpart.Id, lang, cancellationToken)
                 ?? await repository.GetTranslationAsync(counterpart.Id, "en", cancellationToken);

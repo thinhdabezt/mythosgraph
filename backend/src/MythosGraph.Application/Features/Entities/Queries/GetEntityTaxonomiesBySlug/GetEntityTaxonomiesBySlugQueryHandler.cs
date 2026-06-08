@@ -1,6 +1,7 @@
 using MediatR;
 using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Interfaces;
+using MythosGraph.Domain.Enums;
 
 namespace MythosGraph.Application.Features.Entities.Queries.GetEntityTaxonomiesBySlug;
 
@@ -9,7 +10,7 @@ public sealed class GetEntityTaxonomiesBySlugQueryHandler(IEntityRepository repo
     public async Task<EntityTaxonomiesDto?> Handle(GetEntityTaxonomiesBySlugQuery request, CancellationToken cancellationToken)
     {
         var entity = await repository.GetBySlugEntityAsync(request.Slug, cancellationToken);
-        if (entity is null) return null;
+        if (entity is null || entity.Status != EntityStatus.Active) return null;
 
         var lang = string.IsNullOrWhiteSpace(request.Lang) ? "en" : request.Lang.Trim().ToLowerInvariant();
         var translation = await repository.GetTranslationAsync(entity.Id, lang, cancellationToken)
