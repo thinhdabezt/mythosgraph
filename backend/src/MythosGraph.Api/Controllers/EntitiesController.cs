@@ -14,6 +14,8 @@ using MythosGraph.Application.Features.Entities.Queries.GetEntityRelationsBySlug
 using MythosGraph.Application.Features.Entities.Queries.GetEntityBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntitySourcesBySlug;
 using MythosGraph.Application.Features.Entities.Queries.GetEntityTaxonomiesBySlug;
+using MythosGraph.Application.Features.Entities.Queries.GetEntityNeighbors;
+using MythosGraph.Application.Features.Entities.Queries.ExplainEntity;
 using MythosGraph.Application.Features.Entities.Queries.ListEntities;
 using MythosGraph.Application.Interfaces;
 using MythosGraph.Domain.Enums;
@@ -65,6 +67,28 @@ public sealed class EntitiesController(IMediator mediator) : Microsoft.AspNetCor
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetEntitySourcesBySlugQuery(slug), cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/neighbors")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityNeighborsDto>> GetNeighbors(
+        string slug,
+        [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetEntityNeighborsQuery(slug, lang), cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Microsoft.AspNetCore.Mvc.HttpGet("{slug}/explain")]
+    [OutputCache(PolicyName = CachePolicies.PublicApiGet)]
+    public async Task<Microsoft.AspNetCore.Mvc.ActionResult<EntityExplainDto>> Explain(
+        string slug,
+        [Microsoft.AspNetCore.Mvc.FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new ExplainEntityQuery(slug, lang), cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 
