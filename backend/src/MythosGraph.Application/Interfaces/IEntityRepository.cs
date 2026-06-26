@@ -2,6 +2,7 @@ using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Features.Graph.DTOs;
 using MythosGraph.Application.Features.Relations.DTOs;
 using MythosGraph.Application.Features.Search.DTOs;
+using MythosGraph.Application.Features.Traditions.DTOs;
 using MythosGraph.Domain.Entities;
 using MythosGraph.Domain.Enums;
 
@@ -22,12 +23,26 @@ public interface IEntityRepository
         string? sortBy,
         string? sortDirection,
         CancellationToken cancellationToken);
+    Task<(IReadOnlyCollection<(GraphEntity Entity, Tradition? Tradition)> Items, int TotalItems)> ListCreaturesAsync(
+        int page,
+        int pageSize,
+        string? tradition,
+        string? region,
+        string? country,
+        string? creatureType,
+        string? habitat,
+        string? dangerLevel,
+        string? domain,
+        CancellationToken cancellationToken);
     Task AddAsync(GraphEntity entity, CancellationToken cancellationToken);
     Task UpdateAsync(GraphEntity entity, CancellationToken cancellationToken);
     Task<GraphEntity?> GetBySlugEntityAsync(string slug, CancellationToken cancellationToken);
     Task<Tradition?> GetTraditionBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<Tradition> UpsertTraditionAsync(Tradition tradition, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<Tradition>> ListTraditionsAsync(CancellationToken cancellationToken);
+    Task<TraditionDetailDto?> GetTraditionDetailAsync(string slug, CancellationToken cancellationToken);
     Task<Taxonomy?> GetTaxonomyBySlugAsync(string slug, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<Taxonomy>> GetTaxonomiesByCategoryAsync(string category, CancellationToken cancellationToken);
     Task<Taxonomy> UpsertTaxonomyAsync(Taxonomy taxonomy, CancellationToken cancellationToken);
     Task<Source?> GetSourceBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<Source> UpsertSourceAsync(Source source, CancellationToken cancellationToken);
@@ -46,4 +61,7 @@ public interface IEntityRepository
     Task<IReadOnlyCollection<SearchResultDto>> SearchEntitiesAsync(string query, string languageCode, CancellationToken cancellationToken);
     Task<GraphPathResponseDto?> FindGraphPathAsync(string fromSlug, string toSlug, int maxDepth, string languageCode, CancellationToken cancellationToken);
     Task<EntityTranslation?> GetTranslationAsync(Guid entityId, string languageCode, CancellationToken cancellationToken);
+    Task<GraphRelation?> GetRelationByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task UpdateRelationAsync(GraphRelation relation, CancellationToken cancellationToken);
+    Task DeleteRelationAsync(Guid id, CancellationToken cancellationToken);
 }

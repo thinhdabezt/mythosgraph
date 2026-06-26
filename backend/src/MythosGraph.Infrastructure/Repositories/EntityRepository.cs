@@ -4,6 +4,7 @@ using MythosGraph.Application.Features.Entities.DTOs;
 using MythosGraph.Application.Features.Graph.DTOs;
 using MythosGraph.Application.Features.Relations.DTOs;
 using MythosGraph.Application.Features.Search.DTOs;
+using MythosGraph.Application.Features.Traditions.DTOs;
 using MythosGraph.Application.Interfaces;
 using MythosGraph.Domain.Entities;
 using MythosGraph.Domain.Enums;
@@ -119,6 +120,88 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         return (items, totalItems);
     }
 
+    public async Task<(IReadOnlyCollection<(GraphEntity Entity, Tradition? Tradition)> Items, int TotalItems)> ListCreaturesAsync(
+        int page,
+        int pageSize,
+        string? tradition,
+        string? region,
+        string? country,
+        string? creatureType,
+        string? habitat,
+        string? dangerLevel,
+        string? domain,
+        CancellationToken cancellationToken)
+    {
+        var query = from entity in dbContext.GraphEntities
+                    join t in dbContext.Traditions on entity.TraditionId equals t.Id into traditionJoin
+                    from t in traditionJoin.DefaultIfEmpty()
+                    where entity.DeletedAt == null 
+                        && entity.Status == EntityStatus.Active
+                        && entity.EntityType == EntityType.Creature
+                    select new { entity, tradition = t };
+
+        if (!string.IsNullOrWhiteSpace(tradition))
+        {
+            var traditionFilter = tradition.Trim();
+            query = query.Where(x => x.tradition != null && (x.tradition.Slug == traditionFilter || x.tradition.Name == traditionFilter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(region))
+        {
+            var regionFilter = region.Trim();
+            query = query.Where(x => x.tradition != null && x.tradition.Region == regionFilter);
+        }
+
+        if (!string.IsNullOrWhiteSpace(country))
+        {
+            var countryFilter = country.Trim();
+            query = query.Where(x => x.entity.MetadataJson != null && EF.Functions.ILike(x.entity.MetadataJson, $"%{countryFilter}%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(creatureType))
+        {
+            var typeFilter = creatureType.Trim();
+            var creatureEntityIds = from et in dbContext.EntityTaxonomies
+                                   join tax in dbContext.Taxonomies on et.TaxonomyId equals tax.Id
+                                   where EF.Functions.ILike(tax.Name, typeFilter) || EF.Functions.ILike(tax.Slug, typeFilter)
+                                   select et.EntityId;
+            query = query.Where(x => creatureEntityIds.Contains(x.entity.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(habitat))
+        {
+            var habitatFilter = habitat.Trim();
+            query = query.Where(x => x.entity.MetadataJson != null && EF.Functions.ILike(x.entity.MetadataJson, $"%{habitatFilter}%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(dangerLevel))
+        {
+            var dangerFilter = dangerLevel.Trim();
+            query = query.Where(x => x.entity.MetadataJson != null && EF.Functions.ILike(x.entity.MetadataJson, $"%{dangerFilter}%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(domain))
+        {
+            var domainFilter = domain.Trim();
+            query = query.Where(x => x.entity.MetadataJson != null && EF.Functions.ILike(x.entity.MetadataJson, $"%{domainFilter}%"));
+        }
+
+        query = query.OrderBy(x => x.entity.Name);
+
+        var totalItems = await query.CountAsync(cancellationToken);
+
+        var rawItems = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = rawItems
+            .Select(x => (x.entity, (Tradition?)x.tradition))
+            .ToArray();
+
+        return (items, totalItems);
+    }
+
     public async Task AddAsync(GraphEntity entity, CancellationToken cancellationToken)
     {
         await dbContext.GraphEntities.AddAsync(entity, cancellationToken);
@@ -153,6 +236,15 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
     {
         var normalizedSlug = slug.Trim();
         return await dbContext.Taxonomies.FirstOrDefaultAsync(x => x.Slug == normalizedSlug, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<Taxonomy>> GetTaxonomiesByCategoryAsync(string category, CancellationToken cancellationToken)
+    {
+        var normalizedCategory = category.Trim();
+        return await dbContext.Taxonomies
+            .Where(x => EF.Functions.ILike(x.Category, normalizedCategory))
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<Taxonomy> UpsertTaxonomyAsync(Taxonomy taxonomy, CancellationToken cancellationToken)
@@ -564,5 +656,74 @@ public sealed class EntityRepository(MythosGraphDbContext dbContext) : IEntityRe
         var normalized = languageCode.Trim().ToLowerInvariant();
         return await dbContext.EntityTranslations
             .FirstOrDefaultAsync(x => x.EntityId == entityId && x.LanguageCode == normalized && x.Status == EntityStatus.Active, cancellationToken);
+    }
+
+    public async Task<GraphRelation?> GetRelationByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await dbContext.GraphRelations
+            .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null, cancellationToken);
+    }
+
+    public async Task UpdateRelationAsync(GraphRelation relation, CancellationToken cancellationToken)
+    {
+        dbContext.GraphRelations.Update(relation);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteRelationAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var relation = await dbContext.GraphRelations
+            .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null, cancellationToken);
+        if (relation is not null)
+        {
+            relation.DeletedAt = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task<IReadOnlyCollection<Tradition>> ListTraditionsAsync(CancellationToken cancellationToken)
+    {
+        return await dbContext.Traditions
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<TraditionDetailDto?> GetTraditionDetailAsync(string slug, CancellationToken cancellationToken)
+    {
+        var tradition = await dbContext.Traditions.FirstOrDefaultAsync(x => x.Slug == slug, cancellationToken);
+        if (tradition is null) return null;
+
+        var entities = await dbContext.GraphEntities
+            .Where(x => x.TraditionId == tradition.Id && x.DeletedAt == null && x.Status == EntityStatus.Active)
+            .ToListAsync(cancellationToken);
+
+        var entityCount = entities.Count;
+
+        var relatedRegions = new List<string>();
+        if (!string.IsNullOrWhiteSpace(tradition.Region))
+        {
+            relatedRegions.Add(tradition.Region);
+        }
+
+        var typeGroups = entities
+            .GroupBy(x => x.EntityType)
+            .Select(g => new KeyValuePair<string, int>(g.Key.ToString(), g.Count()))
+            .ToList();
+
+        var featured = entities
+            .Take(5)
+            .Select(x => new TraditionFeaturedEntityDto(x.Slug, x.Name, x.EntityType.ToString()))
+            .ToList();
+
+        return new TraditionDetailDto(
+            tradition.Slug,
+            tradition.Name,
+            tradition.Region,
+            tradition.Description,
+            relatedRegions,
+            entityCount,
+            typeGroups,
+            featured
+        );
     }
 }
