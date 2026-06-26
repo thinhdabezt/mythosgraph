@@ -1,4 +1,4 @@
-﻿export type ApiErrorPayload = {
+export type ApiErrorPayload = {
   status: number;
   error: string;
   message: string;
@@ -572,6 +572,189 @@ export async function getRandomEntitySnapshots(count = 5): Promise<ApiSnapshot[]
     path: `GET /entities/${entity.slug}`,
     response: details[index] as unknown as Record<string, unknown>,
   }));
+}
+
+export type CreatureClassification = {
+  primaryType: string;
+  subTypes: string[];
+};
+
+export type CreatureListItem = {
+  slug: string;
+  name: string;
+  tradition: string;
+  classification: CreatureClassification;
+  dangerLevel: string;
+  habitats: string[];
+  summary: string | null;
+};
+
+export type CreaturesListQuery = {
+  page?: number;
+  pageSize?: number;
+  tradition?: string;
+  region?: string;
+  country?: string;
+  creatureType?: string;
+  habitat?: string;
+  dangerLevel?: string;
+  domain?: string;
+};
+
+export type CreaturesListResponse = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  items: CreatureListItem[];
+};
+
+export type CreatureAbility = {
+  name: string;
+  description: string;
+};
+
+export type CreatureWeakness = {
+  name: string;
+  type: string;
+};
+
+export type CreatureRelation = {
+  relationType: string;
+  targetSlug: string;
+};
+
+export type CreatureDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  entityType: string;
+  tradition: string;
+  classification: CreatureClassification;
+  dangerLevel: string;
+  habitats: string[];
+  traits: string[];
+  abilities: CreatureAbility[];
+  weaknesses: CreatureWeakness[];
+  relations: CreatureRelation[];
+  summary: string | null;
+};
+
+export type RelatedCreatureItem = {
+  slug: string;
+  name: string;
+  relation: string;
+  reason: string;
+};
+
+export type RelatedCreaturesResponse = {
+  slug: string;
+  name: string;
+  relatedCreatures: RelatedCreatureItem[];
+};
+
+export type TraditionListItem = {
+  slug: string;
+  name: string;
+  region: string | null;
+  description: string | null;
+};
+
+export type TraditionFeaturedEntity = {
+  slug: string;
+  name: string;
+  entityType: string;
+};
+
+export type TraditionDetail = {
+  slug: string;
+  name: string;
+  region: string | null;
+  description: string | null;
+  relatedRegions: string[];
+  entityCount: number;
+  mainEntityTypes: Array<{ key: string; value: number }>;
+  featuredEntities: TraditionFeaturedEntity[];
+};
+
+export type TaxonomyNode = {
+  slug: string;
+  name: string;
+  children: TaxonomyNode[];
+};
+
+export type TaxonomyTreeResponse = {
+  taxonomy: string;
+  data: TaxonomyNode[];
+};
+
+export type NeighborEntity = {
+  slug: string;
+  name: string;
+  type: string;
+};
+
+export type NeighborItem = {
+  relationType: string;
+  entity: NeighborEntity;
+};
+
+export type EntityNeighborsResponse = {
+  entity: { slug: string; name: string };
+  neighbors: NeighborItem[];
+};
+
+export type EntityExplainResponse = {
+  entity: { slug: string; name: string; type: string };
+  explanation: string[];
+  generatedFromRelations: string[];
+};
+
+// --- Client Functions ---
+
+export async function listCreatures(params: CreaturesListQuery): Promise<CreaturesListResponse> {
+  const query = toQueryString({
+    page: params.page ?? 1,
+    pageSize: params.pageSize ?? 20,
+    tradition: params.tradition,
+    region: params.region,
+    country: params.country,
+    creatureType: params.creatureType,
+    habitat: params.habitat,
+    dangerLevel: params.dangerLevel,
+    domain: params.domain,
+  });
+
+  return await apiRequest<CreaturesListResponse>(`/api/v1/creatures${query}`);
+}
+
+export async function getCreatureDetail(slug: string): Promise<CreatureDetail> {
+  return await apiRequest<CreatureDetail>(`/api/v1/creatures/${encodeURIComponent(slug)}`);
+}
+
+export async function getRelatedCreatures(slug: string): Promise<RelatedCreaturesResponse> {
+  return await apiRequest<RelatedCreaturesResponse>(`/api/v1/creatures/${encodeURIComponent(slug)}/related`);
+}
+
+export async function listTraditions(): Promise<{ data: TraditionListItem[] }> {
+  return await apiRequest<{ data: TraditionListItem[] }>("/api/v1/traditions");
+}
+
+export async function getTraditionDetail(slug: string): Promise<TraditionDetail> {
+  return await apiRequest<TraditionDetail>(`/api/v1/traditions/${encodeURIComponent(slug)}`);
+}
+
+export async function getTaxonomyTree(category: string): Promise<TaxonomyTreeResponse> {
+  return await apiRequest<TaxonomyTreeResponse>(`/api/v1/taxonomies/${encodeURIComponent(category)}`);
+}
+
+export async function getEntityNeighbors(slug: string, lang?: string): Promise<EntityNeighborsResponse> {
+  const query = toQueryString({ lang });
+  return await apiRequest<EntityNeighborsResponse>(`/api/v1/entities/${encodeURIComponent(slug)}/neighbors${query}`);
+}
+
+export async function explainEntity(slug: string, lang?: string): Promise<EntityExplainResponse> {
+  const query = toQueryString({ lang });
+  return await apiRequest<EntityExplainResponse>(`/api/v1/entities/${encodeURIComponent(slug)}/explain${query}`);
 }
 
 export const apiClientConfig = {
