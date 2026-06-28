@@ -1,0 +1,34 @@
+services:
+  backend:
+    container_name: mythosgraph-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5098:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      # Option A: Connects to the Supabase PostgreSQL database (Default)
+      - ConnectionStrings__DefaultConnection=Host=db.apojuigbpiovhpkhgehs.supabase.co;Database=postgres;Username=postgres;Password=l8N0wysbzhomjVMp;SSL Mode=Require;Trust Server Certificate=true
+      
+      # Option B: Connects to the local PostgreSQL docker container 'db' (uncomment to use)
+      # - ConnectionStrings__DefaultConnection=Host=db;Database=mythosgraph;Username=postgres;Password=postgres
+    depends_on:
+      - db
+
+  db:
+    container_name: mythosgraph-db
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mythosgraph
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
