@@ -9,11 +9,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
-      # Option A: Connects to the Supabase PostgreSQL database (Default)
-      - ConnectionStrings__DefaultConnection=Host=db.apojuigbpiovhpkhgehs.supabase.co;Database=postgres;Username=postgres;Password=l8N0wysbzhomjVMp;SSL Mode=Require;Trust Server Certificate=true
-      
-      # Option B: Connects to the local PostgreSQL docker container 'db' (uncomment to use)
-      # - ConnectionStrings__DefaultConnection=Host=db;Database=mythosgraph;Username=postgres;Password=postgres
+      # Database connection string loaded dynamically from the local .env file.
+      # Falls back to the local 'db' container connection string if not defined in .env.
+      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection:-Host=db;Database=mythosgraph;Username=postgres;Password=postgres}
     depends_on:
       - db
 
