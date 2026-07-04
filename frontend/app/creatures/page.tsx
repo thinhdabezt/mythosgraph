@@ -15,7 +15,9 @@ import {
   ChevronRight, 
   Sparkles,
   Waves,
-  Trees
+  Trees,
+  GitCompare,
+  Layers
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -128,7 +130,19 @@ export default function CreaturesPage() {
               Explore monsters, spirits, ghosts, and mythical beasts indexed from ancient oral traditions and classical texts.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/creatures/compare">
+              <Button variant="outline" className="border-zinc-800 bg-zinc-900/40 text-zinc-300 font-mono text-xs h-10 hover:bg-zinc-800/50 hover:text-zinc-100">
+                <GitCompare className="w-4 h-4 mr-2 text-amber-500" />
+                Compare Creatures
+              </Button>
+            </Link>
+            <Link href="/creatures/types">
+              <Button variant="outline" className="border-zinc-800 bg-zinc-900/40 text-zinc-300 font-mono text-xs h-10 hover:bg-zinc-800/50 hover:text-zinc-100">
+                <Layers className="w-4 h-4 mr-2 text-violet-400" />
+                Creature Types
+              </Button>
+            </Link>
             <Link href="/graph-explorer">
               <Button variant="outline" className="border-zinc-800 bg-zinc-900/40 text-zinc-300 font-mono text-xs h-10 hover:bg-zinc-800/50 hover:text-zinc-100">
                 <Compass className="w-4 h-4 mr-2" />
