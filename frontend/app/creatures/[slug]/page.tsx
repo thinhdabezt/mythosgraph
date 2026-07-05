@@ -14,10 +14,12 @@ import {
   Flame, 
   Zap, 
   HeartCrack,
-  Network
+  Network,
+  GitCompare
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -155,6 +157,12 @@ export default function CreatureDetailPage({ params }: PageProps) {
                 <ShieldAlert className="w-3.5 h-3.5 mr-1.5 inline" />
                 {creature.dangerLevel} Threat Level
               </Badge>
+              <Link href={`/creatures/compare?a=${creature.slug}`}>
+                <Button variant="outline" className="border-zinc-800 bg-zinc-900/40 text-zinc-300 font-mono text-[10px] h-8 hover:bg-zinc-800/50 hover:text-zinc-100 mt-1">
+                  <GitCompare className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
+                  Compare Lore
+                </Button>
+              </Link>
             </div>
           </div>
 

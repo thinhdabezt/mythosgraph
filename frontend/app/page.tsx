@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -271,7 +271,7 @@ export default function HomePage() {
 
           <div className="hidden items-center gap-6 text-sm text-zinc-300 md:flex">
             <Link href="/docs" className="transition hover:text-violet-300">Docs</Link>
-            <Link href="/explore" className="transition hover:text-violet-300">CreatureDex</Link>
+            <Link href="/creatures" className="transition hover:text-violet-300">CreatureDex</Link>
             <Link
               href="/graph-explorer"
               className="transition hover:text-violet-300"
@@ -436,10 +436,10 @@ export default function HomePage() {
                   </CardHeader>
                   <CardContent>
                     <Link
-                      href={`/entities/${item.slug}`}
+                      href={`/creatures/${item.slug}`}
                       className="inline-flex items-center gap-1 text-sm text-violet-300 transition hover:text-violet-200"
                     >
-                      Explore Graph Connection <Network className="h-3.5 w-3.5" />
+                      Explore Creature Codex <Network className="h-3.5 w-3.5" />
                     </Link>
                   </CardContent>
                 </Card>
