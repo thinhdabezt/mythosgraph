@@ -31,5 +31,16 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next)
             context.Response.StatusCode = StatusCodes.Status408RequestTimeout;
             await context.Response.WriteAsJsonAsync(new ProblemDetails { Title = "Request Timeout", Detail = ex.Message });
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ApiExceptionMiddleware] Unhandled exception: {ex}");
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails 
+            { 
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error", 
+                Detail = ex.Message 
+            });
+        }
     }
 }
