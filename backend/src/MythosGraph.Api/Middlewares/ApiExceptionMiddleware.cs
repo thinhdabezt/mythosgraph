@@ -1,9 +1,10 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace MythosGraph.Api.Middlewares;
 
-public sealed class ApiExceptionMiddleware(RequestDelegate next)
+public sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiExceptionMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -33,13 +34,13 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next)
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ApiExceptionMiddleware] Unhandled exception: {ex}");
+            logger.LogError(ex, "Unhandled exception occurred while processing the request.");
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await context.Response.WriteAsJsonAsync(new ProblemDetails 
             { 
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "Internal Server Error", 
-                Detail = ex.Message 
+                Detail = "An unexpected error occurred. Please try again later." 
             });
         }
     }
