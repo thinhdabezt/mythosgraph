@@ -1,3 +1,4 @@
+using System;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -46,28 +47,26 @@ if (!string.IsNullOrEmpty(port))
 }
 
 
-using var loggerFactory = LoggerFactory.Create(logging =>
-{
-    logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
-    logging.AddConsole();
-});
-var logger = loggerFactory.CreateLogger("Program");
-
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (!string.IsNullOrWhiteSpace(databaseUrl))
-{
-    connectionString = ParseDatabaseUrl(databaseUrl, connectionString, logger);
-}
 
-if (string.IsNullOrWhiteSpace(connectionString))
+builder.Services.AddDbContext<MythosGraphDbContext>((serviceProvider, options) =>
 {
-    throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
-}
+    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    var connectionString = defaultConnectionString;
 
-builder.Services.AddDbContext<MythosGraphDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        connectionString = ParseDatabaseUrl(databaseUrl, defaultConnectionString, logger);
+    }
+
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+    }
+
+    options.UseNpgsql(connectionString);
+});
 builder.Services.Configure<AdminSeedOptions>(builder.Configuration.GetSection("AdminSeed"));
 builder.Services.AddScoped<AdminUserSeeder>();
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -256,9 +255,16 @@ static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, IL
     try
     {
         var uri = new Uri(databaseUrl);
-        var userInfo = uri.UserInfo.Split(':');
-        var username = userInfo[0];
-        var password = userInfo.Length > 1 ? userInfo[1] : "";
+        
+        string username = "";
+        string password = "";
+        if (!string.IsNullOrWhiteSpace(uri.UserInfo))
+        {
+            var userInfo = uri.UserInfo.Split(':');
+            username = userInfo[0];
+            password = userInfo.Length > 1 ? userInfo[1] : "";
+        }
+
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 5432;
         var database = uri.AbsolutePath.TrimStart('/');
@@ -268,7 +274,22 @@ static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, IL
             throw new FormatException("DATABASE_URL is missing host, database, or username details.");
         }
 
-        return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                         ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+                         ?? "Production";
+
+        var trustServerCertificateOverride =
+            Environment.GetEnvironmentVariable("PG_TRUST_SERVER_CERTIFICATE");
+
+        var trustServerCertificate =
+            string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trustServerCertificateOverride, "true", StringComparison.OrdinalIgnoreCase);
+
+        var connectionString =
+            $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require" +
+            (trustServerCertificate ? ";Trust Server Certificate=true" : string.Empty);
+
+        return connectionString;
     }
     catch (Exception ex)
     {
