@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using MythosGraph.Api.Caching;
 using MythosGraph.Api.Extensions;
@@ -45,7 +46,21 @@ if (!string.IsNullOrEmpty(port))
 }
 
 
+using var loggerFactory = LoggerFactory.Create(logging =>
+{
+    logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+    logging.AddConsole();
+});
+var logger = loggerFactory.CreateLogger("Program");
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
+    connectionString = ParseDatabaseUrl(databaseUrl, connectionString, logger);
+}
+
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
@@ -216,3 +231,49 @@ static string GetUserPartitionKey(HttpContext httpContext)
 
     return $"ip:{GetClientPartitionKey(httpContext)}";
 }
+
+static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, ILogger logger)
+{
+    if (string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        if (string.IsNullOrWhiteSpace(defaultConnection))
+        {
+            throw new InvalidOperationException("Both DATABASE_URL and DefaultConnection are missing or empty.");
+        }
+        return defaultConnection;
+    }
+
+    if (!databaseUrl.StartsWith("postgres://") && !databaseUrl.StartsWith("postgresql://"))
+    {
+        logger.LogWarning("DATABASE_URL is set but does not use 'postgres://' or 'postgresql://' scheme. Falling back to DefaultConnection.");
+        if (string.IsNullOrWhiteSpace(defaultConnection))
+        {
+            throw new InvalidOperationException("DATABASE_URL is not a valid PostgreSQL URL, and DefaultConnection is not configured.");
+        }
+        return defaultConnection;
+    }
+
+    try
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        var username = userInfo[0];
+        var password = userInfo.Length > 1 ? userInfo[1] : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+
+        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(database) || string.IsNullOrWhiteSpace(username))
+        {
+            throw new FormatException("DATABASE_URL is missing host, database, or username details.");
+        }
+
+        return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to parse DATABASE_URL.");
+        throw new InvalidOperationException("The DATABASE_URL environment variable is configured but could not be parsed into a valid PostgreSQL connection string.", ex);
+    }
+}
+
