@@ -290,9 +290,10 @@ static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, IL
         }
 
         string sslMode = "Require";
-        if (queryParameters.TryGetValue("sslmode", out var mode))
+        if (queryParameters.TryGetValue("sslmode", out var mode) && !string.IsNullOrWhiteSpace(mode))
         {
-            sslMode = mode.ToLowerInvariant() switch
+            var normalizedMode = mode.ToLowerInvariant();
+            sslMode = normalizedMode switch
             {
                 "disable" => "Disable",
                 "allow" => "Allow",
