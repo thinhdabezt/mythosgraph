@@ -274,19 +274,57 @@ static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, IL
             throw new FormatException("DATABASE_URL is missing host, database, or username details.");
         }
 
-        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
-                         ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
-                         ?? "Production";
+        var queryParameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(uri.Query))
+        {
+            var query = uri.Query.TrimStart('?');
+            var pairs = query.Split('&', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var pair in pairs)
+            {
+                var kvp = pair.Split('=', 2);
+                if (kvp.Length == 2)
+                {
+                    queryParameters[kvp[0]] = Uri.UnescapeDataString(kvp[1]);
+                }
+            }
+        }
 
-        var trustServerCertificateOverride =
-            Environment.GetEnvironmentVariable("PG_TRUST_SERVER_CERTIFICATE");
+        string sslMode = "Require";
+        if (queryParameters.TryGetValue("sslmode", out var mode))
+        {
+            sslMode = mode.ToLowerInvariant() switch
+            {
+                "disable" => "Disable",
+                "allow" => "Allow",
+                "prefer" => "Prefer",
+                "require" => "Require",
+                "verify-ca" => "VerifyCA",
+                "verify-full" => "VerifyFull",
+                _ => mode
+            };
+        }
 
-        var trustServerCertificate =
-            string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(trustServerCertificateOverride, "true", StringComparison.OrdinalIgnoreCase);
+        bool trustServerCertificate = false;
+        if (queryParameters.TryGetValue("trustservercertificate", out var trustVal))
+        {
+            trustServerCertificate = string.Equals(trustVal, "true", StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                             ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+                             ?? "Production";
+
+            var trustServerCertificateOverride =
+                Environment.GetEnvironmentVariable("PG_TRUST_SERVER_CERTIFICATE");
+
+            trustServerCertificate =
+                string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(trustServerCertificateOverride, "true", StringComparison.OrdinalIgnoreCase);
+        }
 
         var connectionString =
-            $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require" +
+            $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode={sslMode}" +
             (trustServerCertificate ? ";Trust Server Certificate=true" : string.Empty);
 
         return connectionString;
