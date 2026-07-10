@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -32,7 +35,7 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiExce
             context.Response.StatusCode = StatusCodes.Status408RequestTimeout;
             await context.Response.WriteAsJsonAsync(new ProblemDetails { Title = "Request Timeout", Detail = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException && ex is not TaskCanceledException)
         {
             logger.LogError(ex, "Unhandled exception occurred while processing the request.");
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
