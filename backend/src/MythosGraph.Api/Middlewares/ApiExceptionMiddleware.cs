@@ -39,11 +39,15 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiExce
         {
             logger.LogError(ex, "Unhandled exception occurred while processing the request.");
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+            var showDetailedError = context.Request.Query.ContainsKey("debug") || 
+                                    string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
             await context.Response.WriteAsJsonAsync(new ProblemDetails 
             { 
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "Internal Server Error", 
-                Detail = "An unexpected error occurred. Please try again later." 
+                Detail = showDetailedError ? ex.ToString() : "An unexpected error occurred. Please try again later." 
             });
         }
     }
