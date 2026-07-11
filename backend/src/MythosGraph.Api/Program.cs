@@ -260,14 +260,14 @@ static string ParseDatabaseUrl(string databaseUrl, string? defaultConnection, IL
         string password = "";
         if (!string.IsNullOrWhiteSpace(uri.UserInfo))
         {
-            var userInfo = uri.UserInfo.Split(':');
-            username = userInfo[0];
-            password = userInfo.Length > 1 ? userInfo[1] : "";
+            var userInfo = uri.UserInfo.Split(':', 2);
+            username = Uri.UnescapeDataString(userInfo[0]);
+            password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
         }
 
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 5432;
-        var database = uri.AbsolutePath.TrimStart('/');
+        var database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(database) || string.IsNullOrWhiteSpace(username))
         {
